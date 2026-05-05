@@ -67,6 +67,10 @@ func (s *OTelSink) Name() string {
 	return s.name
 }
 
+func (s *OTelSink) Close(ctx context.Context) error {
+	return s.provider.Shutdown(ctx)
+}
+
 func (s *OTelSink) Submit(ctx context.Context, item feedback.Item) error {
 	record := otellog.Record{}
 	record.SetTimestamp(item.CreatedAt)

@@ -72,10 +72,11 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		return errors.New("submit does not accept positional arguments")
 	}
 
-	runtime, err := loadRuntimeConfig(configPath)
+	runtime, err := loadRuntimeConfig(ctx, configPath)
 	if err != nil {
 		return err
 	}
+	defer runtime.Manager.Close(ctx)
 
 	metadata, err := parseMetadata(metadataRaw)
 	if err != nil {
@@ -126,15 +127,16 @@ func runServeMCP(ctx context.Context, version string, args []string, stderr io.W
 		return errors.New("serve-mcp does not accept positional arguments")
 	}
 
-	runtime, err := loadRuntimeConfig(configPath)
+	runtime, err := loadRuntimeConfig(ctx, configPath)
 	if err != nil {
 		return err
 	}
+	defer runtime.Manager.Close(ctx)
 
 	return mcpserver.Serve(ctx, version, runtime.Config, runtime.Manager)
 }
 
-func loadRuntimeConfig(explicitPath string) (*runtimeConfig, error) {
+func loadRuntimeConfig(ctx context.Context, explicitPath string) (*runtimeConfig, error) {
 	cfg, resolvedPath, err := config.Load(explicitPath, ".")
 	if err != nil {
 		return nil, err
@@ -149,7 +151,7 @@ func loadRuntimeConfig(explicitPath string) (*runtimeConfig, error) {
 		repoRoot = ""
 	}
 
-	manager, err := sinks.NewManager(cfg, baseDir, repoRoot)
+	manager, err := sinks.NewManager(ctx, cfg, baseDir, repoRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -205,6 +207,13 @@ Commands:
   submit      Submit feedback directly from the CLI
   serve-mcp   Serve the MCP submit_feedback tool over stdio
   version     Print the build version
+
+Submit flags:
+  --provider    Feedback provider name (required)
+  --feedback    Feedback text (required)
+  --source      Origin of the submission (default: cli)
+  --metadata    Optional JSON object with extra metadata
+  --config      Path to a .suggesting.json file
 
 Config:
   suggesting loads .suggesting.json JSON from the current directory or the

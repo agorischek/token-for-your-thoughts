@@ -74,7 +74,8 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 		return Config{}, "", err
 	}
 
-	if err := loadDotEnv(filepath.Dir(path)); err != nil {
+	dotEnv, err := loadDotEnv(filepath.Dir(path))
+	if err != nil {
 		return Config{}, "", err
 	}
 
@@ -90,7 +91,7 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 		return Config{}, "", fmt.Errorf("decode config %s: %w", path, err)
 	}
 
-	if err := cfg.resolveEnv(); err != nil {
+	if err := cfg.resolveEnv(dotEnv); err != nil {
 		return Config{}, "", err
 	}
 	cfg.applyDefaults()
@@ -187,6 +188,10 @@ func (c *Config) applyDefaults() {
 
 func (c Config) validate() error {
 	for _, sink := range c.Sinks {
+		if err := sink.rejectUnknownFields(); err != nil {
+			return err
+		}
+
 		switch sink.Type {
 		case "file":
 			if !isSupportedFormat(sink.Format) {
@@ -250,26 +255,120 @@ func (c Config) validate() error {
 	return nil
 }
 
-func (c *Config) resolveEnv() error {
+var allowedFieldsBySinkType = map[string]map[string]bool{
+	"file": {
+		"path":   true,
+		"format": true,
+	},
+	"git": {
+		"path":           true,
+		"directory":      true,
+		"format":         true,
+		"branch":         true,
+		"remote":         true,
+		"push":           true,
+		"commit_message": true,
+	},
+	"command": {
+		"command": true,
+		"args":    true,
+		"method":  true,
+	},
+	"application_insights": {
+		"connection_string":     true,
+		"connection_string_env": true,
+		"event_name":            true,
+	},
+	"sql": {
+		"driver":           true,
+		"dsn":              true,
+		"table":            true,
+		"auto_create":      true,
+		"create_statement": true,
+		"insert_statement": true,
+	},
+	"otel": {
+		"endpoint":     true,
+		"endpoint_env": true,
+		"headers":      true,
+		"headers_env":  true,
+		"insecure":     true,
+		"service_name": true,
+	},
+}
+
+func (s SinkConfig) rejectUnknownFields() error {
+	allowed, ok := allowedFieldsBySinkType[s.Type]
+	if !ok {
+		return fmt.Errorf("unsupported sink type %q", s.Type)
+	}
+
+	set := func(field string, isSet bool) error {
+		if isSet && !allowed[field] {
+			return fmt.Errorf("%s sink does not support field %q", s.Type, field)
+		}
+		return nil
+	}
+
+	checks := []struct {
+		field string
+		isSet bool
+	}{
+		{"path", strings.TrimSpace(s.Path) != ""},
+		{"directory", strings.TrimSpace(s.Directory) != ""},
+		{"format", strings.TrimSpace(s.Format) != "" && s.Format != "markdown"},
+		{"command", strings.TrimSpace(s.Command) != ""},
+		{"args", len(s.Args) > 0},
+		{"method", strings.TrimSpace(s.Method) != ""},
+		{"connection_string", strings.TrimSpace(s.ConnectionString) != ""},
+		{"connection_string_env", strings.TrimSpace(s.ConnectionStringEnv) != ""},
+		{"event_name", strings.TrimSpace(s.EventName) != ""},
+		{"branch", strings.TrimSpace(s.Branch) != ""},
+		{"remote", strings.TrimSpace(s.Remote) != ""},
+		{"push", s.Push != nil},
+		{"commit_message", strings.TrimSpace(s.CommitMessage) != ""},
+		{"driver", strings.TrimSpace(s.Driver) != ""},
+		{"dsn", strings.TrimSpace(s.DSN) != ""},
+		{"table", strings.TrimSpace(s.Table) != ""},
+		{"auto_create", s.AutoCreate != nil},
+		{"create_statement", strings.TrimSpace(s.CreateStmt) != ""},
+		{"insert_statement", strings.TrimSpace(s.InsertStmt) != ""},
+		{"endpoint", strings.TrimSpace(s.Endpoint) != ""},
+		{"endpoint_env", strings.TrimSpace(s.EndpointEnv) != ""},
+		{"headers", len(s.Headers) > 0},
+		{"headers_env", strings.TrimSpace(s.HeadersEnv) != ""},
+		{"insecure", s.Insecure},
+		{"service_name", strings.TrimSpace(s.ServiceName) != ""},
+	}
+
+	for _, c := range checks {
+		if err := set(c.field, c.isSet); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Config) resolveEnv(dotEnv map[string]string) error {
 	for i := range c.Sinks {
 		sink := &c.Sinks[i]
 		switch strings.ToLower(strings.TrimSpace(sink.Type)) {
 		case "application_insights":
-			value, err := resolveExclusiveEnvString("application_insights connection string", sink.ConnectionString, sink.ConnectionStringEnv)
+			value, err := resolveExclusiveEnvString("application_insights connection string", sink.ConnectionString, sink.ConnectionStringEnv, dotEnv)
 			if err != nil {
 				return err
 			}
 			sink.ConnectionString = value
 			sink.ConnectionStringEnv = ""
 		case "otel":
-			value, err := resolveExclusiveEnvString("otel endpoint", sink.Endpoint, sink.EndpointEnv)
+			value, err := resolveExclusiveEnvString("otel endpoint", sink.Endpoint, sink.EndpointEnv, dotEnv)
 			if err != nil {
 				return err
 			}
 			sink.Endpoint = value
 			sink.EndpointEnv = ""
 
-			headers, err := resolveExclusiveEnvMap("otel headers", sink.Headers, sink.HeadersEnv)
+			headers, err := resolveExclusiveEnvMap("otel headers", sink.Headers, sink.HeadersEnv, dotEnv)
 			if err != nil {
 				return err
 			}
@@ -280,7 +379,7 @@ func (c *Config) resolveEnv() error {
 	return nil
 }
 
-func resolveExclusiveEnvString(label, directValue, envName string) (string, error) {
+func resolveExclusiveEnvString(label, directValue, envName string, dotEnv map[string]string) (string, error) {
 	if hasBothValues(directValue, envName) {
 		return "", fmt.Errorf("%s cannot set both direct value and _env field", label)
 	}
@@ -288,7 +387,7 @@ func resolveExclusiveEnvString(label, directValue, envName string) (string, erro
 		return directValue, nil
 	}
 
-	value, ok := os.LookupEnv(strings.TrimSpace(envName))
+	value, ok := lookupEnv(strings.TrimSpace(envName), dotEnv)
 	if !ok {
 		return "", fmt.Errorf("%s env var %q is not set", label, strings.TrimSpace(envName))
 	}
@@ -299,7 +398,7 @@ func hasBothValues(a, b string) bool {
 	return strings.TrimSpace(a) != "" && strings.TrimSpace(b) != ""
 }
 
-func resolveExclusiveEnvMap(label string, directValue map[string]string, envName string) (map[string]string, error) {
+func resolveExclusiveEnvMap(label string, directValue map[string]string, envName string, dotEnv map[string]string) (map[string]string, error) {
 	if len(directValue) > 0 && strings.TrimSpace(envName) != "" {
 		return nil, fmt.Errorf("%s cannot set both direct value and _env field", label)
 	}
@@ -307,7 +406,7 @@ func resolveExclusiveEnvMap(label string, directValue map[string]string, envName
 		return directValue, nil
 	}
 
-	value, ok := os.LookupEnv(strings.TrimSpace(envName))
+	value, ok := lookupEnv(strings.TrimSpace(envName), dotEnv)
 	if !ok {
 		return nil, fmt.Errorf("%s env var %q is not set", label, strings.TrimSpace(envName))
 	}
@@ -365,16 +464,31 @@ func locate(explicitPath, startDir string) (string, error) {
 	}
 }
 
-func loadDotEnv(dir string) error {
+func loadDotEnv(dir string) (map[string]string, error) {
 	dotEnvPath := filepath.Join(dir, ".env")
 	if _, err := os.Stat(dotEnvPath); err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return nil, nil
 		}
-		return fmt.Errorf("stat .env %s: %w", dotEnvPath, err)
+		return nil, fmt.Errorf("stat .env %s: %w", dotEnvPath, err)
 	}
-	if err := godotenv.Load(dotEnvPath); err != nil {
-		return fmt.Errorf("load .env %s: %w", dotEnvPath, err)
+	env, err := godotenv.Read(dotEnvPath)
+	if err != nil {
+		return nil, fmt.Errorf("read .env %s: %w", dotEnvPath, err)
 	}
-	return nil
+	return env, nil
+}
+
+// lookupEnv checks the process environment first, then falls back to the
+// dotenv map. This preserves the convention that process env wins over .env.
+func lookupEnv(key string, dotEnv map[string]string) (string, bool) {
+	if value, ok := os.LookupEnv(key); ok {
+		return value, true
+	}
+	if dotEnv != nil {
+		if value, ok := dotEnv[key]; ok {
+			return value, true
+		}
+	}
+	return "", false
 }

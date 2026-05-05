@@ -43,6 +43,10 @@ func (s *SQLSink) Name() string {
 	return "sql"
 }
 
+func (s *SQLSink) Close() error {
+	return s.db.Close()
+}
+
 func (s *SQLSink) Submit(ctx context.Context, item feedback.Item) error {
 	if _, err := s.db.ExecContext(ctx, s.insertStmt,
 		item.ID,

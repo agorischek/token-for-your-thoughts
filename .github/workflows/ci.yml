@@ -19,6 +19,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: go mod verify
+        run: go mod verify
       - name: go test
         run: go test ./...
 

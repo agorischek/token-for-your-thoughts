@@ -18,7 +18,7 @@ For MCP usage, add `suggesting serve-mcp` to your MCP config.
 
 Update your `AGENTS.md` or similar instructions file to encourage agents to provide feedback.
 
-Feedback will be written to `FEEDBACK.md` by default. See configuration docs for other sinks.
+Feedback will be written to `FEEDBACK.md` by default. See below for configuration of other sinks.
 
 ## Commands
 
@@ -27,7 +27,8 @@ Submit feedback directly:
 ```bash
 suggesting submit \
   --provider "Claude Code" \
-  --feedback "The command failed, but the surfaced output only showed a generic wrapper message, so I had to rerun it manually to see the real error."
+  --feedback "The command failed, but the surfaced output only showed a generic wrapper message, so I had to rerun it manually to see the real error." \
+  --metadata '{"command":"git status","exit_code":1}'
 ```
 
 Serve the MCP server:

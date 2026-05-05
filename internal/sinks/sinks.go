@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/agorischek/suggesting/internal/config"
 	"github.com/agorischek/suggesting/internal/feedback"
@@ -25,7 +24,7 @@ type Manager struct {
 	sinks []Sink
 }
 
-func NewManager(cfg config.Config, baseDir, repoRoot string) (*Manager, error) {
+func NewManager(ctx context.Context, cfg config.Config, baseDir, repoRoot string) (*Manager, error) {
 	created := make([]Sink, 0, len(cfg.Sinks))
 
 	for _, sinkConfig := range cfg.Sinks {
@@ -44,7 +43,7 @@ func NewManager(cfg config.Config, baseDir, repoRoot string) (*Manager, error) {
 		case "sql":
 			sink, err = NewSQLSink(baseDir, sinkConfig)
 		case "otel":
-			sink, err = NewOTelSink(context.Background(), sinkConfig)
+			sink, err = NewOTelSink(ctx, sinkConfig)
 		default:
 			err = fmt.Errorf("unsupported sink type %q", sinkConfig.Type)
 		}
@@ -55,6 +54,19 @@ func NewManager(cfg config.Config, baseDir, repoRoot string) (*Manager, error) {
 	}
 
 	return &Manager{sinks: created}, nil
+}
+
+func (m *Manager) Close(ctx context.Context) error {
+	var errs []error
+	for _, s := range m.sinks {
+		switch sink := s.(type) {
+		case *SQLSink:
+			errs = append(errs, sink.Close())
+		case *OTelSink:
+			errs = append(errs, sink.Close(ctx))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (m *Manager) Submit(ctx context.Context, item feedback.Item) (Result, error) {
@@ -81,16 +93,4 @@ func (m *Manager) Submit(ctx context.Context, item feedback.Item) (Result, error
 		return result, errors.Join(errs...)
 	}
 	return result, nil
-}
-
-func joinFailures(failures map[string]string) string {
-	if len(failures) == 0 {
-		return ""
-	}
-	items := make([]string, 0, len(failures))
-	for name, msg := range failures {
-		items = append(items, fmt.Sprintf("%s (%s)", name, msg))
-	}
-	sort.Strings(items)
-	return strings.Join(items, ", ")
 }
