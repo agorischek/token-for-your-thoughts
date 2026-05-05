@@ -25,7 +25,7 @@
     },
     {
       "type": "application_insights",
-      "connection_string": "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://dc.applicationinsights.azure.com/",
+      "connection_string_env": "APPINSIGHTS_CONNECTION_STRING",
       "event_name": "suggesting feedback"
     },
     {
@@ -36,8 +36,8 @@
     },
     {
       "type": "otel",
-      "endpoint": "http://localhost:4318",
-      "insecure": true,
+      "endpoint_env": "BETTER_STACK_OTEL_ENDPOINT",
+      "headers_env": "BETTER_STACK_OTEL_HEADERS",
       "service_name": "suggesting"
     }
   ]

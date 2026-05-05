@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "suggesting": {
+      "type": "local",
+      "command": "go",
+      "args": [
+        "run",
+        "./cmd/suggesting",
+        "serve-mcp"
+      ],
+      "env": {},
+      "tools": [
+        "submit_feedback"
+      ]
+    }
+  }
+}

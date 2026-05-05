@@ -1,4 +1,5 @@
 .suggesting.json
+.env
 dist/
 coverage.out
 *.db

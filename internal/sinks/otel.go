@@ -4,40 +4,41 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/agorischek/suggesting/internal/config"
 	"github.com/agorischek/suggesting/internal/feedback"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type OTelSink struct {
 	name     string
-	provider *sdktrace.TracerProvider
-	tracer   trace.Tracer
+	provider *sdklog.LoggerProvider
+	logger   otellog.Logger
 }
 
 func NewOTelSink(ctx context.Context, cfg config.SinkConfig) (*OTelSink, error) {
-	options := make([]otlptracehttp.Option, 0, 3)
+	options := make([]otlploghttp.Option, 0, 3)
 	if endpoint := strings.TrimSpace(cfg.Endpoint); endpoint != "" {
 		if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
-			options = append(options, otlptracehttp.WithEndpointURL(endpoint))
+			options = append(options, otlploghttp.WithEndpointURL(endpoint))
 		} else {
-			options = append(options, otlptracehttp.WithEndpoint(endpoint))
+			options = append(options, otlploghttp.WithEndpoint(endpoint))
 		}
 	}
 	if cfg.Insecure {
-		options = append(options, otlptracehttp.WithInsecure())
+		options = append(options, otlploghttp.WithInsecure())
 	}
 	if len(cfg.Headers) > 0 {
-		options = append(options, otlptracehttp.WithHeaders(cfg.Headers))
+		options = append(options, otlploghttp.WithHeaders(cfg.Headers))
 	}
 
-	exporter, err := otlptracehttp.New(ctx, options...)
+	exporter, err := otlploghttp.New(ctx, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create otel exporter: %w", err)
 	}
@@ -50,15 +51,15 @@ func NewOTelSink(ctx context.Context, cfg config.SinkConfig) (*OTelSink, error) 
 		return nil, fmt.Errorf("create otel resource: %w", err)
 	}
 
-	provider := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(res),
+	provider := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
+		sdklog.WithResource(res),
 	)
 
 	return &OTelSink{
 		name:     "otel",
 		provider: provider,
-		tracer:   provider.Tracer("github.com/agorischek/suggesting"),
+		logger:   provider.Logger("github.com/agorischek/suggesting"),
 	}, nil
 }
 
@@ -67,19 +68,23 @@ func (s *OTelSink) Name() string {
 }
 
 func (s *OTelSink) Submit(ctx context.Context, item feedback.Item) error {
-	_, span := s.tracer.Start(ctx, "suggesting.feedback")
-	span.SetAttributes(
-		attribute.String("feedback.id", item.ID),
-		attribute.String("feedback.provider", item.Provider),
-		attribute.String("feedback.text", item.Feedback),
-		attribute.String("feedback.source", item.Source),
-		attribute.String("feedback.created_at", item.CreatedAt.Format("2006-01-02T15:04:05Z07:00")),
-		attribute.String("feedback.metadata_json", item.MetadataJSON()),
+	record := otellog.Record{}
+	record.SetTimestamp(item.CreatedAt)
+	record.SetObservedTimestamp(time.Now().UTC())
+	record.SetBody(otellog.StringValue(item.Feedback))
+	record.SetEventName("suggesting.feedback")
+	record.AddAttributes(
+		otellog.String("feedback.id", item.ID),
+		otellog.String("feedback.provider", item.Provider),
+		otellog.String("feedback.source", item.Source),
+		otellog.String("feedback.created_at", item.CreatedAt.Format(time.RFC3339)),
+		otellog.String("feedback.metadata_json", item.MetadataJSON()),
 	)
-	span.End()
+
+	s.logger.Emit(ctx, record)
 
 	if err := s.provider.ForceFlush(ctx); err != nil {
-		return fmt.Errorf("flush otel spans: %w", err)
+		return fmt.Errorf("flush otel logs: %w", err)
 	}
 	return nil
 }

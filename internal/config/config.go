@@ -8,14 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 const (
 	DefaultFileName                     = ".suggesting.json"
 	defaultMCPToolName                  = "submit_feedback"
-	defaultMCPDescription               = "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
+	defaultMCPDescription               = "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
 	defaultFeedbackPath                 = "FEEDBACK.md"
-	defaultFeedbackJSONPath             = "FEEDBACK.jsonl"
+	defaultFeedbackJSONPath             = "feedback.jsonl"
 	defaultGitRemote                    = "origin"
 	defaultGitBranch                    = "feedback"
 	defaultGitDirectory                 = ".feedback"
@@ -39,33 +41,40 @@ type MCPConfig struct {
 type SinkConfig struct {
 	Type string `json:"type"`
 
-	Path             string            `json:"path,omitempty"`
-	Directory        string            `json:"directory,omitempty"`
-	Format           string            `json:"format,omitempty"`
-	Command          string            `json:"command,omitempty"`
-	Args             []string          `json:"args,omitempty"`
-	Method           string            `json:"method,omitempty"`
-	ConnectionString string            `json:"connection_string,omitempty"`
-	EventName        string            `json:"event_name,omitempty"`
-	Branch           string            `json:"branch,omitempty"`
-	Remote           string            `json:"remote,omitempty"`
-	Push             *bool             `json:"push,omitempty"`
-	CommitMessage    string            `json:"commit_message,omitempty"`
-	Driver           string            `json:"driver,omitempty"`
-	DSN              string            `json:"dsn,omitempty"`
-	Table            string            `json:"table,omitempty"`
-	AutoCreate       *bool             `json:"auto_create,omitempty"`
-	CreateStmt       string            `json:"create_statement,omitempty"`
-	InsertStmt       string            `json:"insert_statement,omitempty"`
-	Endpoint         string            `json:"endpoint,omitempty"`
-	Headers          map[string]string `json:"headers,omitempty"`
-	Insecure         bool              `json:"insecure,omitempty"`
-	ServiceName      string            `json:"service_name,omitempty"`
+	Path                string            `json:"path,omitempty"`
+	Directory           string            `json:"directory,omitempty"`
+	Format              string            `json:"format,omitempty"`
+	Command             string            `json:"command,omitempty"`
+	Args                []string          `json:"args,omitempty"`
+	Method              string            `json:"method,omitempty"`
+	ConnectionString    string            `json:"connection_string,omitempty"`
+	ConnectionStringEnv string            `json:"connection_string_env,omitempty"`
+	EventName           string            `json:"event_name,omitempty"`
+	Branch              string            `json:"branch,omitempty"`
+	Remote              string            `json:"remote,omitempty"`
+	Push                *bool             `json:"push,omitempty"`
+	CommitMessage       string            `json:"commit_message,omitempty"`
+	Driver              string            `json:"driver,omitempty"`
+	DSN                 string            `json:"dsn,omitempty"`
+	Table               string            `json:"table,omitempty"`
+	AutoCreate          *bool             `json:"auto_create,omitempty"`
+	CreateStmt          string            `json:"create_statement,omitempty"`
+	InsertStmt          string            `json:"insert_statement,omitempty"`
+	Endpoint            string            `json:"endpoint,omitempty"`
+	EndpointEnv         string            `json:"endpoint_env,omitempty"`
+	Headers             map[string]string `json:"headers,omitempty"`
+	HeadersEnv          string            `json:"headers_env,omitempty"`
+	Insecure            bool              `json:"insecure,omitempty"`
+	ServiceName         string            `json:"service_name,omitempty"`
 }
 
 func Load(explicitPath, startDir string) (Config, string, error) {
 	path, err := locate(explicitPath, startDir)
 	if err != nil {
+		return Config{}, "", err
+	}
+
+	if err := loadDotEnv(filepath.Dir(path)); err != nil {
 		return Config{}, "", err
 	}
 
@@ -81,6 +90,9 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 		return Config{}, "", fmt.Errorf("decode config %s: %w", path, err)
 	}
 
+	if err := cfg.resolveEnv(); err != nil {
+		return Config{}, "", err
+	}
 	cfg.applyDefaults()
 	if err := cfg.validate(); err != nil {
 		return Config{}, "", err
@@ -109,6 +121,9 @@ func (c *Config) applyDefaults() {
 	}
 	if strings.TrimSpace(c.MCP.ToolDescription) == "" {
 		c.MCP.ToolDescription = defaultMCPDescription
+	}
+	if len(c.Sinks) == 0 {
+		c.Sinks = []SinkConfig{{Type: "file"}}
 	}
 
 	for i := range c.Sinks {
@@ -171,10 +186,6 @@ func (c *Config) applyDefaults() {
 }
 
 func (c Config) validate() error {
-	if len(c.Sinks) == 0 {
-		return errors.New("config must define at least one sink")
-	}
-
 	for _, sink := range c.Sinks {
 		switch sink.Type {
 		case "file":
@@ -189,8 +200,11 @@ func (c Config) validate() error {
 				return errors.New("command sink requires method")
 			}
 		case "application_insights":
+			if hasBothValues(sink.ConnectionString, sink.ConnectionStringEnv) {
+				return errors.New("application_insights sink cannot set both connection_string and connection_string_env")
+			}
 			if strings.TrimSpace(sink.ConnectionString) == "" {
-				return errors.New("application_insights sink requires connection_string")
+				return errors.New("application_insights sink requires connection_string or connection_string_env")
 			}
 			if strings.TrimSpace(sink.EventName) == "" {
 				return errors.New("application_insights sink requires event_name")
@@ -222,12 +236,90 @@ func (c Config) validate() error {
 				return errors.New("sql sink with auto_create requires create_statement")
 			}
 		case "otel":
+			if hasBothValues(sink.Endpoint, sink.EndpointEnv) {
+				return errors.New("otel sink cannot set both endpoint and endpoint_env")
+			}
+			if len(sink.Headers) > 0 && strings.TrimSpace(sink.HeadersEnv) != "" {
+				return errors.New("otel sink cannot set both headers and headers_env")
+			}
 		default:
 			return fmt.Errorf("unsupported sink type %q", sink.Type)
 		}
 	}
 
 	return nil
+}
+
+func (c *Config) resolveEnv() error {
+	for i := range c.Sinks {
+		sink := &c.Sinks[i]
+		switch strings.ToLower(strings.TrimSpace(sink.Type)) {
+		case "application_insights":
+			value, err := resolveExclusiveEnvString("application_insights connection string", sink.ConnectionString, sink.ConnectionStringEnv)
+			if err != nil {
+				return err
+			}
+			sink.ConnectionString = value
+			sink.ConnectionStringEnv = ""
+		case "otel":
+			value, err := resolveExclusiveEnvString("otel endpoint", sink.Endpoint, sink.EndpointEnv)
+			if err != nil {
+				return err
+			}
+			sink.Endpoint = value
+			sink.EndpointEnv = ""
+
+			headers, err := resolveExclusiveEnvMap("otel headers", sink.Headers, sink.HeadersEnv)
+			if err != nil {
+				return err
+			}
+			sink.Headers = headers
+			sink.HeadersEnv = ""
+		}
+	}
+	return nil
+}
+
+func resolveExclusiveEnvString(label, directValue, envName string) (string, error) {
+	if hasBothValues(directValue, envName) {
+		return "", fmt.Errorf("%s cannot set both direct value and _env field", label)
+	}
+	if strings.TrimSpace(envName) == "" {
+		return directValue, nil
+	}
+
+	value, ok := os.LookupEnv(strings.TrimSpace(envName))
+	if !ok {
+		return "", fmt.Errorf("%s env var %q is not set", label, strings.TrimSpace(envName))
+	}
+	return value, nil
+}
+
+func hasBothValues(a, b string) bool {
+	return strings.TrimSpace(a) != "" && strings.TrimSpace(b) != ""
+}
+
+func resolveExclusiveEnvMap(label string, directValue map[string]string, envName string) (map[string]string, error) {
+	if len(directValue) > 0 && strings.TrimSpace(envName) != "" {
+		return nil, fmt.Errorf("%s cannot set both direct value and _env field", label)
+	}
+	if strings.TrimSpace(envName) == "" {
+		return directValue, nil
+	}
+
+	value, ok := os.LookupEnv(strings.TrimSpace(envName))
+	if !ok {
+		return nil, fmt.Errorf("%s env var %q is not set", label, strings.TrimSpace(envName))
+	}
+
+	var decoded map[string]string
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
+		return nil, fmt.Errorf("%s env var %q must contain a JSON object: %w", label, strings.TrimSpace(envName), err)
+	}
+	if decoded == nil {
+		decoded = map[string]string{}
+	}
+	return decoded, nil
 }
 
 func normalizeFormat(format string) string {
@@ -271,4 +363,18 @@ func locate(explicitPath, startDir string) (string, error) {
 		}
 		current = parent
 	}
+}
+
+func loadDotEnv(dir string) error {
+	dotEnvPath := filepath.Join(dir, ".env")
+	if _, err := os.Stat(dotEnvPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat .env %s: %w", dotEnvPath, err)
+	}
+	if err := godotenv.Load(dotEnvPath); err != nil {
+		return fmt.Errorf("load .env %s: %w", dotEnvPath, err)
+	}
+	return nil
 }

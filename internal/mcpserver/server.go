@@ -19,7 +19,6 @@ type submitInput struct {
 
 type submitOutput struct {
 	ID        string            `json:"id" jsonschema:"GUID assigned to the feedback"`
-	CreatedAt string            `json:"created_at" jsonschema:"RFC3339 timestamp for when the feedback was recorded"`
 	Succeeded []string          `json:"succeeded" jsonschema:"Sinks that accepted the feedback"`
 	Failed    map[string]string `json:"failed,omitempty" jsonschema:"Sinks that returned an error"`
 }
@@ -42,7 +41,6 @@ func Serve(ctx context.Context, version string, cfg config.Config, manager *sink
 		result, err := manager.Submit(ctx, item)
 		output := submitOutput{
 			ID:        item.ID,
-			CreatedAt: item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 			Succeeded: result.Succeeded,
 			Failed:    result.Failed,
 		}
