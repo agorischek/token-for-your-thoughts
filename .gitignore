@@ -1,0 +1,4 @@
+.suggestionsrc
+dist/
+coverage.out
+*.db

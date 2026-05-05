@@ -1,0 +1,203 @@
+package config
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	DefaultFileName        = ".suggestionsrc"
+	defaultMCPToolName     = "submit_feedback"
+	defaultMCPDescription  = "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
+	defaultFeedbackPath    = "FEEDBACK.md"
+	defaultGitRemote       = "origin"
+	defaultGitBranch       = "agent-feedback"
+	defaultGitCommitPrefix = "Add feedback entry"
+	defaultSQLDriver       = "sqlite"
+	defaultSQLTable        = "feedback"
+	defaultOTelServiceName = "suggestion-box"
+)
+
+type Config struct {
+	MCP   MCPConfig    `json:"mcp"`
+	Sinks []SinkConfig `json:"sinks"`
+}
+
+type MCPConfig struct {
+	ToolName        string `json:"tool_name"`
+	ToolDescription string `json:"tool_description"`
+}
+
+type SinkConfig struct {
+	Type string `json:"type"`
+
+	Path          string            `json:"path,omitempty"`
+	Branch        string            `json:"branch,omitempty"`
+	Remote        string            `json:"remote,omitempty"`
+	Push          *bool             `json:"push,omitempty"`
+	CommitMessage string            `json:"commit_message,omitempty"`
+	Driver        string            `json:"driver,omitempty"`
+	DSN           string            `json:"dsn,omitempty"`
+	Table         string            `json:"table,omitempty"`
+	AutoCreate    *bool             `json:"auto_create,omitempty"`
+	CreateStmt    string            `json:"create_statement,omitempty"`
+	InsertStmt    string            `json:"insert_statement,omitempty"`
+	Endpoint      string            `json:"endpoint,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	Insecure      bool              `json:"insecure,omitempty"`
+	ServiceName   string            `json:"service_name,omitempty"`
+}
+
+func Load(explicitPath, startDir string) (Config, string, error) {
+	path, err := locate(explicitPath, startDir)
+	if err != nil {
+		return Config{}, "", err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, "", fmt.Errorf("read config %s: %w", path, err)
+	}
+
+	var cfg Config
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&cfg); err != nil {
+		return Config{}, "", fmt.Errorf("decode config %s: %w", path, err)
+	}
+
+	cfg.applyDefaults()
+	if err := cfg.validate(); err != nil {
+		return Config{}, "", err
+	}
+
+	return cfg, path, nil
+}
+
+func (c Config) ToolName() string {
+	if strings.TrimSpace(c.MCP.ToolName) != "" {
+		return c.MCP.ToolName
+	}
+	return defaultMCPToolName
+}
+
+func (c Config) ToolDescription() string {
+	if strings.TrimSpace(c.MCP.ToolDescription) != "" {
+		return c.MCP.ToolDescription
+	}
+	return defaultMCPDescription
+}
+
+func (c *Config) applyDefaults() {
+	if strings.TrimSpace(c.MCP.ToolName) == "" {
+		c.MCP.ToolName = defaultMCPToolName
+	}
+	if strings.TrimSpace(c.MCP.ToolDescription) == "" {
+		c.MCP.ToolDescription = defaultMCPDescription
+	}
+
+	for i := range c.Sinks {
+		sink := &c.Sinks[i]
+		sink.Type = strings.ToLower(strings.TrimSpace(sink.Type))
+
+		switch sink.Type {
+		case "file":
+			if strings.TrimSpace(sink.Path) == "" {
+				sink.Path = defaultFeedbackPath
+			}
+		case "git":
+			if strings.TrimSpace(sink.Path) == "" {
+				sink.Path = defaultFeedbackPath
+			}
+			if strings.TrimSpace(sink.Branch) == "" {
+				sink.Branch = defaultGitBranch
+			}
+			if strings.TrimSpace(sink.Remote) == "" {
+				sink.Remote = defaultGitRemote
+			}
+			if sink.Push == nil {
+				value := true
+				sink.Push = &value
+			}
+			if strings.TrimSpace(sink.CommitMessage) == "" {
+				sink.CommitMessage = defaultGitCommitPrefix + " {{ .ID }}"
+			}
+		case "sql":
+			if strings.TrimSpace(sink.Driver) == "" {
+				sink.Driver = defaultSQLDriver
+			}
+			if strings.TrimSpace(sink.Table) == "" {
+				sink.Table = defaultSQLTable
+			}
+			if sink.AutoCreate == nil {
+				value := true
+				sink.AutoCreate = &value
+			}
+		case "otel":
+			if strings.TrimSpace(sink.ServiceName) == "" {
+				sink.ServiceName = defaultOTelServiceName
+			}
+		}
+	}
+}
+
+func (c Config) validate() error {
+	if len(c.Sinks) == 0 {
+		return errors.New("config must define at least one sink")
+	}
+
+	for _, sink := range c.Sinks {
+		switch sink.Type {
+		case "file":
+		case "git":
+			if strings.TrimSpace(sink.Branch) == "" {
+				return errors.New("git sink requires branch")
+			}
+			if strings.TrimSpace(sink.Remote) == "" {
+				return errors.New("git sink requires remote")
+			}
+		case "sql":
+			if strings.TrimSpace(sink.DSN) == "" {
+				return errors.New("sql sink requires dsn")
+			}
+		case "otel":
+		default:
+			return fmt.Errorf("unsupported sink type %q", sink.Type)
+		}
+	}
+
+	return nil
+}
+
+func locate(explicitPath, startDir string) (string, error) {
+	if strings.TrimSpace(explicitPath) != "" {
+		path := explicitPath
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(startDir, path)
+		}
+		return filepath.Abs(path)
+	}
+
+	current, err := filepath.Abs(startDir)
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		candidate := filepath.Join(current, DefaultFileName)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", fmt.Errorf("could not find %s in %s or its parents", DefaultFileName, startDir)
+		}
+		current = parent
+	}
+}

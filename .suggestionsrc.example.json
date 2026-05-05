@@ -1,0 +1,31 @@
+{
+  "mcp": {
+    "tool_name": "submit_feedback",
+    "tool_description": "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
+  },
+  "sinks": [
+    {
+      "type": "file",
+      "path": "FEEDBACK.md"
+    },
+    {
+      "type": "git",
+      "branch": "agent-feedback",
+      "remote": "origin",
+      "path": "FEEDBACK.md",
+      "commit_message": "Add feedback entry {{ .ID }}"
+    },
+    {
+      "type": "sql",
+      "driver": "sqlite",
+      "dsn": "feedback.db",
+      "table": "feedback"
+    },
+    {
+      "type": "otel",
+      "endpoint": "http://localhost:4318",
+      "insecure": true,
+      "service_name": "suggestion-box"
+    }
+  ]
+}

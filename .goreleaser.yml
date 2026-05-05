@@ -1,0 +1,44 @@
+version: 2
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - id: suggestion-box
+    main: ./cmd/suggestion-box
+    binary: suggestion-box
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: agorischek
+    name: suggestion-box

@@ -1,0 +1,92 @@
+package sinks
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/agorischek/suggestion-box/internal/config"
+	"github.com/agorischek/suggestion-box/internal/feedback"
+)
+
+type Sink interface {
+	Name() string
+	Submit(context.Context, feedback.Item) error
+}
+
+type Result struct {
+	Succeeded []string
+	Failed    map[string]string
+}
+
+type Manager struct {
+	sinks []Sink
+}
+
+func NewManager(cfg config.Config, baseDir, repoRoot string) (*Manager, error) {
+	created := make([]Sink, 0, len(cfg.Sinks))
+
+	for _, sinkConfig := range cfg.Sinks {
+		var sink Sink
+		var err error
+
+		switch sinkConfig.Type {
+		case "file":
+			sink, err = NewFileSink(baseDir, sinkConfig)
+		case "git":
+			sink, err = NewGitSink(baseDir, repoRoot, sinkConfig)
+		case "sql":
+			sink, err = NewSQLSink(baseDir, sinkConfig)
+		case "otel":
+			sink, err = NewOTelSink(context.Background(), sinkConfig)
+		default:
+			err = fmt.Errorf("unsupported sink type %q", sinkConfig.Type)
+		}
+		if err != nil {
+			return nil, err
+		}
+		created = append(created, sink)
+	}
+
+	return &Manager{sinks: created}, nil
+}
+
+func (m *Manager) Submit(ctx context.Context, item feedback.Item) (Result, error) {
+	result := Result{
+		Succeeded: make([]string, 0, len(m.sinks)),
+		Failed:    map[string]string{},
+	}
+	var errs []error
+
+	for _, sink := range m.sinks {
+		if err := sink.Submit(ctx, item); err != nil {
+			result.Failed[sink.Name()] = err.Error()
+			errs = append(errs, fmt.Errorf("%s: %w", sink.Name(), err))
+			continue
+		}
+		result.Succeeded = append(result.Succeeded, sink.Name())
+	}
+
+	sort.Strings(result.Succeeded)
+	if len(result.Failed) == 0 {
+		return result, nil
+	}
+	if len(result.Succeeded) == 0 {
+		return result, errors.Join(errs...)
+	}
+	return result, nil
+}
+
+func joinFailures(failures map[string]string) string {
+	if len(failures) == 0 {
+		return ""
+	}
+	items := make([]string, 0, len(failures))
+	for name, msg := range failures {
+		items = append(items, fmt.Sprintf("%s (%s)", name, msg))
+	}
+	sort.Strings(items)
+	return strings.Join(items, ", ")
+}
