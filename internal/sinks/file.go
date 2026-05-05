@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
 )
 
 type FileSink struct {

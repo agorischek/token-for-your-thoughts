@@ -31,6 +31,66 @@ func TestLoadAppliesDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadAppliesGitDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"git"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Sinks[0].Branch != "feedback" {
+		t.Fatalf("unexpected branch %q", cfg.Sinks[0].Branch)
+	}
+	if cfg.Sinks[0].Directory != ".feedback" {
+		t.Fatalf("unexpected directory %q", cfg.Sinks[0].Directory)
+	}
+}
+
+func TestLoadAppliesCommandDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"command","command":"bridge"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Sinks[0].Method != "submit_feedback" {
+		t.Fatalf("unexpected method %q", cfg.Sinks[0].Method)
+	}
+}
+
+func TestLoadAppliesApplicationInsightsDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"application_insights","connection_string":"InstrumentationKey=abc"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Sinks[0].EventName != "suggesting feedback" {
+		t.Fatalf("unexpected event name %q", cfg.Sinks[0].EventName)
+	}
+}
+
 func TestLocateWalksParents(t *testing.T) {
 	t.Parallel()
 

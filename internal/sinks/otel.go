@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -44,7 +44,7 @@ func NewOTelSink(ctx context.Context, cfg config.SinkConfig) (*OTelSink, error) 
 
 	res, err := resource.New(ctx, resource.WithAttributes(
 		semconv.ServiceNameKey.String(cfg.ServiceName),
-		attribute.String("suggestion_box.sink", "otel"),
+		attribute.String("suggesting.sink", "otel"),
 	))
 	if err != nil {
 		return nil, fmt.Errorf("create otel resource: %w", err)
@@ -58,7 +58,7 @@ func NewOTelSink(ctx context.Context, cfg config.SinkConfig) (*OTelSink, error) 
 	return &OTelSink{
 		name:     "otel",
 		provider: provider,
-		tracer:   provider.Tracer("github.com/agorischek/suggestion-box"),
+		tracer:   provider.Tracer("github.com/agorischek/suggesting"),
 	}, nil
 }
 
@@ -67,13 +67,11 @@ func (s *OTelSink) Name() string {
 }
 
 func (s *OTelSink) Submit(ctx context.Context, item feedback.Item) error {
-	_, span := s.tracer.Start(ctx, "suggestion-box.feedback")
+	_, span := s.tracer.Start(ctx, "suggesting.feedback")
 	span.SetAttributes(
 		attribute.String("feedback.id", item.ID),
 		attribute.String("feedback.provider", item.Provider),
-		attribute.String("feedback.summary", item.Summary),
-		attribute.String("feedback.details", item.Details),
-		attribute.String("feedback.category", item.Category),
+		attribute.String("feedback.text", item.Feedback),
 		attribute.String("feedback.source", item.Source),
 		attribute.String("feedback.created_at", item.CreatedAt.Format("2006-01-02T15:04:05Z07:00")),
 		attribute.String("feedback.metadata_json", item.MetadataJSON()),

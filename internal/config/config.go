@@ -11,16 +11,18 @@ import (
 )
 
 const (
-	DefaultFileName        = ".suggestionsrc"
-	defaultMCPToolName     = "submit_feedback"
-	defaultMCPDescription  = "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
-	defaultFeedbackPath    = "FEEDBACK.md"
-	defaultGitRemote       = "origin"
-	defaultGitBranch       = "agent-feedback"
-	defaultGitCommitPrefix = "Add feedback entry"
-	defaultSQLDriver       = "sqlite"
-	defaultSQLTable        = "feedback"
-	defaultOTelServiceName = "suggestion-box"
+	DefaultFileName                     = ".suggesting.json"
+	defaultMCPToolName                  = "submit_feedback"
+	defaultMCPDescription               = "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
+	defaultFeedbackPath                 = "FEEDBACK.md"
+	defaultGitRemote                    = "origin"
+	defaultGitBranch                    = "feedback"
+	defaultGitDirectory                 = ".feedback"
+	defaultGitCommitPrefix              = "Add feedback entry"
+	defaultCommandMethod                = "submit_feedback"
+	defaultApplicationInsightsEventName = "suggesting feedback"
+	defaultSQLTable                     = "feedback"
+	defaultOTelServiceName              = "suggesting"
 )
 
 type Config struct {
@@ -36,21 +38,27 @@ type MCPConfig struct {
 type SinkConfig struct {
 	Type string `json:"type"`
 
-	Path          string            `json:"path,omitempty"`
-	Branch        string            `json:"branch,omitempty"`
-	Remote        string            `json:"remote,omitempty"`
-	Push          *bool             `json:"push,omitempty"`
-	CommitMessage string            `json:"commit_message,omitempty"`
-	Driver        string            `json:"driver,omitempty"`
-	DSN           string            `json:"dsn,omitempty"`
-	Table         string            `json:"table,omitempty"`
-	AutoCreate    *bool             `json:"auto_create,omitempty"`
-	CreateStmt    string            `json:"create_statement,omitempty"`
-	InsertStmt    string            `json:"insert_statement,omitempty"`
-	Endpoint      string            `json:"endpoint,omitempty"`
-	Headers       map[string]string `json:"headers,omitempty"`
-	Insecure      bool              `json:"insecure,omitempty"`
-	ServiceName   string            `json:"service_name,omitempty"`
+	Path             string            `json:"path,omitempty"`
+	Directory        string            `json:"directory,omitempty"`
+	Command          string            `json:"command,omitempty"`
+	Args             []string          `json:"args,omitempty"`
+	Method           string            `json:"method,omitempty"`
+	ConnectionString string            `json:"connection_string,omitempty"`
+	EventName        string            `json:"event_name,omitempty"`
+	Branch           string            `json:"branch,omitempty"`
+	Remote           string            `json:"remote,omitempty"`
+	Push             *bool             `json:"push,omitempty"`
+	CommitMessage    string            `json:"commit_message,omitempty"`
+	Driver           string            `json:"driver,omitempty"`
+	DSN              string            `json:"dsn,omitempty"`
+	Table            string            `json:"table,omitempty"`
+	AutoCreate       *bool             `json:"auto_create,omitempty"`
+	CreateStmt       string            `json:"create_statement,omitempty"`
+	InsertStmt       string            `json:"insert_statement,omitempty"`
+	Endpoint         string            `json:"endpoint,omitempty"`
+	Headers          map[string]string `json:"headers,omitempty"`
+	Insecure         bool              `json:"insecure,omitempty"`
+	ServiceName      string            `json:"service_name,omitempty"`
 }
 
 func Load(explicitPath, startDir string) (Config, string, error) {
@@ -111,8 +119,12 @@ func (c *Config) applyDefaults() {
 				sink.Path = defaultFeedbackPath
 			}
 		case "git":
-			if strings.TrimSpace(sink.Path) == "" {
-				sink.Path = defaultFeedbackPath
+			if strings.TrimSpace(sink.Directory) == "" {
+				if strings.TrimSpace(sink.Path) != "" {
+					sink.Directory = sink.Path
+				} else {
+					sink.Directory = defaultGitDirectory
+				}
 			}
 			if strings.TrimSpace(sink.Branch) == "" {
 				sink.Branch = defaultGitBranch
@@ -127,15 +139,20 @@ func (c *Config) applyDefaults() {
 			if strings.TrimSpace(sink.CommitMessage) == "" {
 				sink.CommitMessage = defaultGitCommitPrefix + " {{ .ID }}"
 			}
-		case "sql":
-			if strings.TrimSpace(sink.Driver) == "" {
-				sink.Driver = defaultSQLDriver
+		case "command":
+			if strings.TrimSpace(sink.Method) == "" {
+				sink.Method = defaultCommandMethod
 			}
+		case "application_insights":
+			if strings.TrimSpace(sink.EventName) == "" {
+				sink.EventName = defaultApplicationInsightsEventName
+			}
+		case "sql":
 			if strings.TrimSpace(sink.Table) == "" {
 				sink.Table = defaultSQLTable
 			}
 			if sink.AutoCreate == nil {
-				value := true
+				value := false
 				sink.AutoCreate = &value
 			}
 		case "otel":
@@ -154,6 +171,20 @@ func (c Config) validate() error {
 	for _, sink := range c.Sinks {
 		switch sink.Type {
 		case "file":
+		case "command":
+			if strings.TrimSpace(sink.Command) == "" {
+				return errors.New("command sink requires command")
+			}
+			if strings.TrimSpace(sink.Method) == "" {
+				return errors.New("command sink requires method")
+			}
+		case "application_insights":
+			if strings.TrimSpace(sink.ConnectionString) == "" {
+				return errors.New("application_insights sink requires connection_string")
+			}
+			if strings.TrimSpace(sink.EventName) == "" {
+				return errors.New("application_insights sink requires event_name")
+			}
 		case "git":
 			if strings.TrimSpace(sink.Branch) == "" {
 				return errors.New("git sink requires branch")
@@ -161,9 +192,21 @@ func (c Config) validate() error {
 			if strings.TrimSpace(sink.Remote) == "" {
 				return errors.New("git sink requires remote")
 			}
+			if strings.TrimSpace(sink.Directory) == "" && strings.TrimSpace(sink.Path) == "" {
+				return errors.New("git sink requires directory")
+			}
 		case "sql":
+			if strings.TrimSpace(sink.Driver) == "" {
+				return errors.New("sql sink requires driver")
+			}
 			if strings.TrimSpace(sink.DSN) == "" {
 				return errors.New("sql sink requires dsn")
+			}
+			if strings.TrimSpace(sink.InsertStmt) == "" {
+				return errors.New("sql sink requires insert_statement")
+			}
+			if sink.AutoCreate != nil && *sink.AutoCreate && strings.TrimSpace(sink.CreateStmt) == "" {
+				return errors.New("sql sink with auto_create requires create_statement")
 			}
 		case "otel":
 		default:

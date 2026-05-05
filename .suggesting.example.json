@@ -1,0 +1,42 @@
+{
+  "mcp": {
+    "tool_name": "submit_feedback",
+    "tool_description": "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
+  },
+  "sinks": [
+    {
+      "type": "file",
+      "path": "FEEDBACK.md"
+    },
+    {
+      "type": "git",
+      "branch": "feedback",
+      "remote": "origin",
+      "directory": ".feedback",
+      "commit_message": "Add feedback entry {{ .ID }}"
+    },
+    {
+      "type": "command",
+      "command": "/usr/local/bin/feedback-bridge",
+      "args": ["--stdio"],
+      "method": "submit_feedback"
+    },
+    {
+      "type": "application_insights",
+      "connection_string": "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://dc.applicationinsights.azure.com/",
+      "event_name": "suggesting feedback"
+    },
+    {
+      "type": "sql",
+      "driver": "postgres",
+      "dsn": "postgres://user:pass@localhost:5432/app?sslmode=disable",
+      "insert_statement": "INSERT INTO feedback (id, provider, feedback, source, created_at, metadata_json) VALUES ($1, $2, $3, $4, $5, $6)"
+    },
+    {
+      "type": "otel",
+      "endpoint": "http://localhost:4318",
+      "insecure": true,
+      "service_name": "suggesting"
+    }
+  ]
+}

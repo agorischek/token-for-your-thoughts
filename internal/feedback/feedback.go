@@ -13,26 +13,22 @@ import (
 type Item struct {
 	ID        string         `json:"id"`
 	Provider  string         `json:"provider"`
-	Summary   string         `json:"summary"`
-	Details   string         `json:"details,omitempty"`
-	Category  string         `json:"category,omitempty"`
+	Feedback  string         `json:"feedback"`
 	Source    string         `json:"source"`
 	CreatedAt time.Time      `json:"created_at"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
 }
 
-func New(provider, summary, details, category, source string, metadata map[string]any) (Item, error) {
+func New(provider, substance, source string, metadata map[string]any) (Item, error) {
 	provider = strings.TrimSpace(provider)
-	summary = strings.TrimSpace(summary)
-	details = strings.TrimSpace(details)
-	category = strings.TrimSpace(category)
+	substance = strings.TrimSpace(substance)
 	source = strings.TrimSpace(source)
 
 	if provider == "" {
 		return Item{}, errors.New("provider is required")
 	}
-	if summary == "" {
-		return Item{}, errors.New("summary is required")
+	if substance == "" {
+		return Item{}, errors.New("feedback is required")
 	}
 	if source == "" {
 		source = "unknown"
@@ -41,9 +37,7 @@ func New(provider, summary, details, category, source string, metadata map[strin
 	return Item{
 		ID:        uuid.NewString(),
 		Provider:  provider,
-		Summary:   summary,
-		Details:   details,
-		Category:  category,
+		Feedback:  substance,
 		Source:    source,
 		CreatedAt: time.Now().UTC(),
 		Metadata:  metadata,
@@ -66,30 +60,20 @@ func (i Item) MarkdownEntry() string {
 	var builder strings.Builder
 
 	builder.WriteString("## ")
-	builder.WriteString(i.CreatedAt.Format(time.RFC3339))
-	builder.WriteString("\n\n")
-	builder.WriteString("- ID: `")
 	builder.WriteString(i.ID)
-	builder.WriteString("`\n")
+	builder.WriteString("\n\n")
+	builder.WriteString("- Created At: ")
+	builder.WriteString(i.CreatedAt.Format(time.RFC3339))
+	builder.WriteString("\n")
 	builder.WriteString("- Provider: ")
 	builder.WriteString(i.Provider)
 	builder.WriteString("\n")
-	if i.Category != "" {
-		builder.WriteString("- Category: ")
-		builder.WriteString(i.Category)
-		builder.WriteString("\n")
-	}
 	builder.WriteString("- Source: ")
 	builder.WriteString(i.Source)
 	builder.WriteString("\n")
-	builder.WriteString("- Summary: ")
-	builder.WriteString(i.Summary)
+	builder.WriteString("- Feedback: ")
+	builder.WriteString(i.Feedback)
 	builder.WriteString("\n")
-	if i.Details != "" {
-		builder.WriteString("\n")
-		builder.WriteString(i.Details)
-		builder.WriteString("\n")
-	}
 	if len(i.Metadata) > 0 {
 		builder.WriteString("\n```json\n")
 		builder.WriteString(i.MetadataJSON())

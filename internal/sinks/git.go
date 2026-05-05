@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
 )
 
 type GitSink struct {
@@ -19,7 +19,7 @@ type GitSink struct {
 	repoRoot      string
 	branch        string
 	remote        string
-	path          string
+	directory     string
 	push          bool
 	commitMessage *template.Template
 }
@@ -39,7 +39,7 @@ func NewGitSink(baseDir, repoRoot string, cfg config.SinkConfig) (*GitSink, erro
 		repoRoot:      repoRoot,
 		branch:        cfg.Branch,
 		remote:        cfg.Remote,
-		path:          cfg.Path,
+		directory:     cfg.Directory,
 		push:          cfg.Push != nil && *cfg.Push,
 		commitMessage: commitTemplate,
 	}, nil
@@ -55,7 +55,7 @@ func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
 		return fmt.Errorf("resolve remote %s: %w", s.remote, err)
 	}
 
-	tempDir, err := os.MkdirTemp("", "suggestion-box-git-*")
+	tempDir, err := os.MkdirTemp("", "suggesting-git-*")
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
@@ -75,28 +75,25 @@ func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
 		return err
 	}
 
-	path := s.path
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(tempDir, path)
+	if filepath.IsAbs(s.directory) {
+		return fmt.Errorf("git sink directory must be relative to the repository root")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+
+	directoryPath := filepath.Join(tempDir, filepath.Clean(s.directory))
+	relDirectory, err := filepath.Rel(tempDir, directoryPath)
+	if err != nil {
+		return fmt.Errorf("compute git sink directory: %w", err)
+	}
+	if relDirectory == ".." || strings.HasPrefix(relDirectory, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("git sink directory must stay within the repository root")
+	}
+	if err := os.MkdirAll(directoryPath, 0o755); err != nil {
 		return fmt.Errorf("create git sink directory: %w", err)
 	}
 
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return fmt.Errorf("open sink file: %w", err)
-	}
-	if err := ensureHeader(file); err != nil {
-		file.Close()
-		return err
-	}
-	if _, err := file.WriteString(item.MarkdownEntry()); err != nil {
-		file.Close()
-		return fmt.Errorf("append entry: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close sink file: %w", err)
+	path := filepath.Join(directoryPath, item.ID+".md")
+	if err := os.WriteFile(path, []byte(item.MarkdownEntry()), 0o644); err != nil {
+		return fmt.Errorf("write feedback file: %w", err)
 	}
 
 	relPath, err := filepath.Rel(tempDir, path)
@@ -164,18 +161,4 @@ func (s *GitSink) gitOutput(ctx context.Context, dir string, args ...string) (st
 		return "", fmt.Errorf("%s: %s", strings.Join(args, " "), strings.TrimSpace(string(output)))
 	}
 	return strings.TrimSpace(string(output)), nil
-}
-
-func ensureHeader(file *os.File) error {
-	info, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("stat sink file: %w", err)
-	}
-	if info.Size() != 0 {
-		return nil
-	}
-	if _, err := file.WriteString("# Feedback\n\n"); err != nil {
-		return fmt.Errorf("write header: %w", err)
-	}
-	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/agorischek/suggestion-box/internal/app"
+	"github.com/agorischek/suggesting/internal/app"
 )
 
 var version = "dev"

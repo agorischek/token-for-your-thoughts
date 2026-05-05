@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
 )
 
 func TestFileSinkWritesEntry(t *testing.T) {
@@ -20,7 +20,7 @@ func TestFileSinkWritesEntry(t *testing.T) {
 		t.Fatalf("new file sink: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "Summary", "Details", "tooling", "cli", nil)
+	item, err := feedback.New("Claude Code", "Summary and details together", "cli", nil)
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestFileSinkWritesEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}
-	for _, expected := range []string{"# Feedback", "Claude Code", "Summary"} {
+	for _, expected := range []string{"# Feedback", "Claude Code", "Summary and details together"} {
 		if !strings.Contains(string(data), expected) {
 			t.Fatalf("file missing %q", expected)
 		}

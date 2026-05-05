@@ -12,10 +12,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
-	"github.com/agorischek/suggestion-box/internal/mcpserver"
-	"github.com/agorischek/suggestion-box/internal/sinks"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/suggesting/internal/mcpserver"
+	"github.com/agorischek/suggesting/internal/sinks"
 )
 
 type runtimeConfig struct {
@@ -55,17 +55,13 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 
 	var configPath string
 	var provider string
-	var summary string
-	var details string
-	var category string
+	var feedbackText string
 	var source string
 	var metadataRaw string
 
-	fs.StringVar(&configPath, "config", "", "path to a .suggestionsrc file")
+	fs.StringVar(&configPath, "config", "", "path to a .suggesting.json file")
 	fs.StringVar(&provider, "provider", "", "feedback provider, for example Claude Code")
-	fs.StringVar(&summary, "summary", "", "short summary of the feedback")
-	fs.StringVar(&details, "details", "", "longer description of the feedback")
-	fs.StringVar(&category, "category", "", "optional category such as tooling or instructions")
+	fs.StringVar(&feedbackText, "feedback", "", "feedback text")
 	fs.StringVar(&source, "source", "cli", "origin of the submission")
 	fs.StringVar(&metadataRaw, "metadata", "", "optional JSON object with extra metadata")
 
@@ -86,7 +82,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		return err
 	}
 
-	item, err := feedback.New(provider, summary, details, category, source, metadata)
+	item, err := feedback.New(provider, feedbackText, source, metadata)
 	if err != nil {
 		return err
 	}
@@ -121,7 +117,7 @@ func runServeMCP(ctx context.Context, version string, args []string, stderr io.W
 	fs.SetOutput(stderr)
 
 	var configPath string
-	fs.StringVar(&configPath, "config", "", "path to a .suggestionsrc file")
+	fs.StringVar(&configPath, "config", "", "path to a .suggesting.json file")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -198,12 +194,12 @@ func parseMetadata(raw string) (map[string]any, error) {
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprint(w, `suggestion-box collects agent feedback for a repository.
+	fmt.Fprint(w, `suggesting collects agent feedback for a repository.
 
 Usage:
-  suggestion-box submit --provider "Claude Code" --summary "..." [flags]
-  suggestion-box serve-mcp [flags]
-  suggestion-box version
+  suggesting submit --provider "Claude Code" --feedback "..." [flags]
+  suggesting serve-mcp [flags]
+  suggesting version
 
 Commands:
   submit      Submit feedback directly from the CLI
@@ -211,7 +207,7 @@ Commands:
   version     Print the build version
 
 Config:
-  suggestion-box loads .suggestionsrc JSON from the current directory or the
+  suggesting loads .suggesting.json JSON from the current directory or the
   nearest parent directory unless --config is provided.
 `)
 }

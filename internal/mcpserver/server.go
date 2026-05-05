@@ -5,17 +5,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
-	"github.com/agorischek/suggestion-box/internal/sinks"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/suggesting/internal/sinks"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type submitInput struct {
 	Provider string         `json:"provider" jsonschema:"Provider name for the agent or tool, for example Claude Code"`
-	Summary  string         `json:"summary" jsonschema:"Short summary of the feedback"`
-	Details  string         `json:"details,omitempty" jsonschema:"Longer description with context, repro steps, or examples"`
-	Category string         `json:"category,omitempty" jsonschema:"Optional category such as tooling, instructions, workflow, or ergonomics"`
+	Feedback string         `json:"feedback" jsonschema:"The feedback itself, including any context, repro steps, or examples"`
 	Metadata map[string]any `json:"metadata,omitempty" jsonschema:"Optional structured metadata"`
 }
 
@@ -28,7 +26,7 @@ type submitOutput struct {
 
 func Serve(ctx context.Context, version string, cfg config.Config, manager *sinks.Manager) error {
 	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "suggestion-box",
+		Name:    "suggesting",
 		Version: version,
 	}, nil)
 
@@ -36,7 +34,7 @@ func Serve(ctx context.Context, version string, cfg config.Config, manager *sink
 		Name:        cfg.ToolName(),
 		Description: cfg.ToolDescription(),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input submitInput) (*mcp.CallToolResult, submitOutput, error) {
-		item, err := feedback.New(input.Provider, input.Summary, input.Details, input.Category, "mcp", input.Metadata)
+		item, err := feedback.New(input.Provider, input.Feedback, "mcp", input.Metadata)
 		if err != nil {
 			return toolError(err), submitOutput{}, nil
 		}

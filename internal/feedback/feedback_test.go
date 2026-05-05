@@ -5,21 +5,21 @@ import (
 	"testing"
 )
 
-func TestNewRequiresProviderAndSummary(t *testing.T) {
+func TestNewRequiresProviderAndFeedback(t *testing.T) {
 	t.Parallel()
 
-	if _, err := New("", "summary", "", "", "", nil); err == nil {
+	if _, err := New("", "feedback", "", nil); err == nil {
 		t.Fatal("expected provider validation error")
 	}
-	if _, err := New("Claude Code", "", "", "", "", nil); err == nil {
-		t.Fatal("expected summary validation error")
+	if _, err := New("Claude Code", "", "", nil); err == nil {
+		t.Fatal("expected feedback validation error")
 	}
 }
 
 func TestMarkdownEntryIncludesMetadata(t *testing.T) {
 	t.Parallel()
 
-	item, err := New("Claude Code", "Shell errors", "stderr was confusing", "tooling", "cli", map[string]any{
+	item, err := New("Claude Code", "Shell errors and confusing stderr output", "cli", map[string]any{
 		"command": "git status",
 	})
 	if err != nil {
@@ -27,7 +27,7 @@ func TestMarkdownEntryIncludesMetadata(t *testing.T) {
 	}
 
 	entry := item.MarkdownEntry()
-	for _, expected := range []string{"Claude Code", "Shell errors", "stderr was confusing", "command"} {
+	for _, expected := range []string{"## " + item.ID, "Created At:", "Claude Code", "Shell errors and confusing stderr output", "command"} {
 		if !strings.Contains(entry, expected) {
 			t.Fatalf("entry missing %q", expected)
 		}

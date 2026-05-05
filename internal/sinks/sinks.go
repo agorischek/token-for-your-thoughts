@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/agorischek/suggestion-box/internal/config"
-	"github.com/agorischek/suggestion-box/internal/feedback"
+	"github.com/agorischek/suggesting/internal/config"
+	"github.com/agorischek/suggesting/internal/feedback"
 )
 
 type Sink interface {
@@ -35,6 +35,10 @@ func NewManager(cfg config.Config, baseDir, repoRoot string) (*Manager, error) {
 		switch sinkConfig.Type {
 		case "file":
 			sink, err = NewFileSink(baseDir, sinkConfig)
+		case "command":
+			sink, err = NewCommandSink(sinkConfig)
+		case "application_insights":
+			sink, err = NewApplicationInsightsSink(sinkConfig)
 		case "git":
 			sink, err = NewGitSink(baseDir, repoRoot, sinkConfig)
 		case "sql":

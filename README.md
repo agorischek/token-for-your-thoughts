@@ -1,22 +1,22 @@
-# suggestion-box
+# suggesting
 
-`suggestion-box` is a Go CLI for collecting feedback from coding agents about their experience working in a repository. It supports direct submission from the command line and an MCP server mode that exposes a `submit_feedback` tool by default.
+`suggesting` is a Go CLI for collecting feedback from coding agents about their experience working in a repository. It supports direct submission from the command line and an MCP server mode that exposes a `submit_feedback` tool by default.
 
-Each feedback record gets a GUID and must include a `Provider`, such as `Claude Code`, so teams can trace where the report came from. The default MCP tool description is tuned for reporting tool errors and inefficiencies, along with instruction gaps and inconsistencies. Both the tool name and description can be overridden in `.suggestionsrc`.
+Each feedback record gets a GUID and must include a `Provider`, such as `Claude Code`, so teams can trace where the report came from. The feedback itself is a single text field rather than separate summary/detail fields. The default MCP tool description is tuned for reporting tool errors and inefficiencies, along with instruction gaps and inconsistencies. Both the tool name and description can be overridden in `.suggesting.json`.
 
 ## Features
 
 - `submit` command for direct feedback submission
 - `serve-mcp` command for exposing an MCP tool over stdio
-- JSON configuration via `.suggestionsrc`
+- JSON configuration via `.suggesting.json`
 - Multiple sinks per submission
-- Built-in sinks for OTel, file, Git, and SQL
+- Built-in sinks for OTel, file, Git, command, Application Insights, and SQL
 - GoReleaser config and release workflow
 
 ## Installation
 
 ```bash
-go install github.com/agorischek/suggestion-box/cmd/suggestion-box@latest
+go install github.com/agorischek/suggesting/cmd/suggesting@latest
 ```
 
 ## Commands
@@ -24,29 +24,27 @@ go install github.com/agorischek/suggestion-box/cmd/suggestion-box@latest
 Submit feedback directly:
 
 ```bash
-suggestion-box submit \
+suggesting submit \
   --provider "Claude Code" \
-  --summary "Shell output hid the real error" \
-  --details "The command failed, but the surfaced output only showed a generic wrapper message." \
-  --category tooling \
+  --feedback "The command failed, but the surfaced output only showed a generic wrapper message, so I had to rerun it manually to see the real error." \
   --metadata '{"command":"go test ./...","exit_code":1}'
 ```
 
 Serve the MCP server:
 
 ```bash
-suggestion-box serve-mcp
+suggesting serve-mcp
 ```
 
 Print the version:
 
 ```bash
-suggestion-box version
+suggesting version
 ```
 
 ## Configuration
 
-`suggestion-box` looks for `.suggestionsrc` in the current directory and then walks up parent directories until it finds one. You can also pass `--config /path/to/.suggestionsrc`.
+`suggesting` looks for `.suggesting.json` in the current directory and then walks up parent directories until it finds one. You can also pass `--config /path/to/.suggesting.json`.
 
 Example:
 
@@ -63,21 +61,32 @@ Example:
     },
     {
       "type": "git",
-      "branch": "agent-feedback",
+      "branch": "feedback",
       "remote": "origin",
-      "path": "FEEDBACK.md"
+      "directory": ".feedback"
+    },
+    {
+      "type": "command",
+      "command": "/usr/local/bin/feedback-bridge",
+      "args": ["--stdio"],
+      "method": "submit_feedback"
+    },
+    {
+      "type": "application_insights",
+      "connection_string": "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://dc.applicationinsights.azure.com/",
+      "event_name": "suggesting feedback"
     },
     {
       "type": "sql",
-      "driver": "sqlite",
-      "dsn": "feedback.db",
-      "table": "feedback"
+      "driver": "postgres",
+      "dsn": "postgres://user:pass@localhost:5432/app?sslmode=disable",
+      "insert_statement": "INSERT INTO feedback (id, provider, feedback, source, created_at, metadata_json) VALUES ($1, $2, $3, $4, $5, $6)"
     },
     {
       "type": "otel",
       "endpoint": "http://localhost:4318",
       "insecure": true,
-      "service_name": "suggestion-box"
+      "service_name": "suggesting"
     }
   ]
 }
@@ -91,14 +100,30 @@ Example:
 
 `git`
 
-- Writes feedback into a dedicated branch and commits a new entry there.
+- Writes each feedback item into its own Markdown file named `{guid}.md`.
+- Stores those files under a configurable directory such as `.feedback/`.
 - Pushes to `origin` by default.
 - Uses the current repository `HEAD` as the branch base if the feedback branch does not exist yet.
 
+`command`
+
+- Spawns a configured subprocess.
+- Sends one JSON-RPC 2.0 request over stdin and reads one response from stdout.
+- The default method name is `submit_feedback`, but you can override it with `method`.
+- The request `params` payload is the full feedback item: `id`, `provider`, `feedback`, `source`, `created_at`, and optional `metadata`.
+
+`application_insights`
+
+- Sends each feedback item as a `customEvent` to the Application Insights ingestion endpoint.
+- Uses a standard Application Insights connection string with `InstrumentationKey` and optionally `IngestionEndpoint` or `EndpointSuffix`.
+- Defaults the event name to `suggesting feedback`, but you can override it with `event_name`.
+
 `sql`
 
-- Supports SQLite out of the box through `modernc.org/sqlite`.
-- For non-SQLite drivers, provide a custom `insert_statement`.
+- Does not bundle a database driver by default.
+- Requires a driver name, DSN, and custom `insert_statement`.
+- If you want `auto_create`, also provide a `create_statement`.
+- Use a custom build that imports your SQL driver of choice.
 
 `otel`
 
@@ -115,9 +140,7 @@ Default description:
 Tool input fields:
 
 - `provider` required
-- `summary` required
-- `details` optional
-- `category` optional
+- `feedback` required
 - `metadata` optional JSON object
 
 ## Development
@@ -131,7 +154,7 @@ go test ./...
 Build the CLI:
 
 ```bash
-go build ./cmd/suggestion-box
+go build ./cmd/suggesting
 ```
 
 Create a local snapshot release:
