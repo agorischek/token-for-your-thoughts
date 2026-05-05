@@ -20,6 +20,7 @@ type GitSink struct {
 	branch        string
 	remote        string
 	directory     string
+	format        string
 	push          bool
 	commitMessage *template.Template
 }
@@ -40,6 +41,7 @@ func NewGitSink(baseDir, repoRoot string, cfg config.SinkConfig) (*GitSink, erro
 		branch:        cfg.Branch,
 		remote:        cfg.Remote,
 		directory:     cfg.Directory,
+		format:        cfg.Format,
 		push:          cfg.Push != nil && *cfg.Push,
 		commitMessage: commitTemplate,
 	}, nil
@@ -91,8 +93,22 @@ func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
 		return fmt.Errorf("create git sink directory: %w", err)
 	}
 
-	path := filepath.Join(directoryPath, item.ID+".md")
-	if err := os.WriteFile(path, []byte(item.MarkdownEntry()), 0o644); err != nil {
+	extension := ".md"
+	var content []byte
+	switch s.format {
+	case "json":
+		extension = ".json"
+		content, err = item.JSON(true)
+		if err != nil {
+			return fmt.Errorf("marshal feedback json: %w", err)
+		}
+		content = append(content, '\n')
+	default:
+		content = []byte(item.MarkdownEntry())
+	}
+
+	path := filepath.Join(directoryPath, item.ID+extension)
+	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return fmt.Errorf("write feedback file: %w", err)
 	}
 

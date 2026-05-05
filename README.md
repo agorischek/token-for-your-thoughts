@@ -57,13 +57,15 @@ Example:
   "sinks": [
     {
       "type": "file",
-      "path": "FEEDBACK.md"
+      "path": "FEEDBACK.md",
+      "format": "markdown"
     },
     {
       "type": "git",
       "branch": "feedback",
       "remote": "origin",
-      "directory": ".feedback"
+      "directory": ".feedback",
+      "format": "markdown"
     },
     {
       "type": "command",
@@ -97,11 +99,15 @@ Example:
 `file`
 
 - Appends Markdown entries to `FEEDBACK.md` by default.
+- Supports `format: "markdown"` and `format: "json"`.
+- JSON file output is newline-delimited JSON, so repeated submissions append cleanly. The default JSON filename is `FEEDBACK.jsonl`.
 
 `git`
 
 - Writes each feedback item into its own Markdown file named `{guid}.md`.
 - Stores those files under a configurable directory such as `.feedback/`.
+- Supports `format: "markdown"` and `format: "json"`.
+- JSON git output writes one pretty-printed `{guid}.json` file per feedback item.
 - Pushes to `origin` by default.
 - Uses the current repository `HEAD` as the branch base if the feedback branch does not exist yet.
 

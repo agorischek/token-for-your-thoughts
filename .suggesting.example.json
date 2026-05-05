@@ -6,13 +6,15 @@
   "sinks": [
     {
       "type": "file",
-      "path": "FEEDBACK.md"
+      "path": "FEEDBACK.md",
+      "format": "markdown"
     },
     {
       "type": "git",
       "branch": "feedback",
       "remote": "origin",
       "directory": ".feedback",
+      "format": "markdown",
       "commit_message": "Add feedback entry {{ .ID }}"
     },
     {

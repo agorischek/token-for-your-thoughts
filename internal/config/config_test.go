@@ -29,6 +29,9 @@ func TestLoadAppliesDefaults(t *testing.T) {
 	if cfg.Sinks[0].Path != "FEEDBACK.md" {
 		t.Fatalf("unexpected path %q", cfg.Sinks[0].Path)
 	}
+	if cfg.Sinks[0].Format != "markdown" {
+		t.Fatalf("unexpected format %q", cfg.Sinks[0].Format)
+	}
 }
 
 func TestLoadAppliesGitDefaults(t *testing.T) {
@@ -50,6 +53,9 @@ func TestLoadAppliesGitDefaults(t *testing.T) {
 	}
 	if cfg.Sinks[0].Directory != ".feedback" {
 		t.Fatalf("unexpected directory %q", cfg.Sinks[0].Directory)
+	}
+	if cfg.Sinks[0].Format != "markdown" {
+		t.Fatalf("unexpected format %q", cfg.Sinks[0].Format)
 	}
 }
 
@@ -88,6 +94,28 @@ func TestLoadAppliesApplicationInsightsDefaults(t *testing.T) {
 
 	if cfg.Sinks[0].EventName != "suggesting feedback" {
 		t.Fatalf("unexpected event name %q", cfg.Sinks[0].EventName)
+	}
+}
+
+func TestLoadAppliesJSONFileDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"file","format":"json"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Sinks[0].Path != "FEEDBACK.jsonl" {
+		t.Fatalf("unexpected path %q", cfg.Sinks[0].Path)
+	}
+	if cfg.Sinks[0].Format != "json" {
+		t.Fatalf("unexpected format %q", cfg.Sinks[0].Format)
 	}
 }
 

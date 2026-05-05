@@ -11,7 +11,8 @@ import (
 )
 
 type FileSink struct {
-	path string
+	path   string
+	format string
 }
 
 func NewFileSink(baseDir string, cfg config.SinkConfig) (*FileSink, error) {
@@ -19,7 +20,7 @@ func NewFileSink(baseDir string, cfg config.SinkConfig) (*FileSink, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(baseDir, path)
 	}
-	return &FileSink{path: path}, nil
+	return &FileSink{path: path, format: cfg.Format}, nil
 }
 
 func (s *FileSink) Name() string {
@@ -37,18 +38,29 @@ func (s *FileSink) Submit(_ context.Context, item feedback.Item) error {
 	}
 	defer file.Close()
 
-	info, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("stat feedback file: %w", err)
-	}
-	if info.Size() == 0 {
-		if _, err := file.WriteString("# Feedback\n\n"); err != nil {
-			return fmt.Errorf("write header: %w", err)
+	switch s.format {
+	case "json":
+		data, err := item.JSON(false)
+		if err != nil {
+			return fmt.Errorf("marshal feedback json: %w", err)
 		}
-	}
+		if _, err := file.Write(append(data, '\n')); err != nil {
+			return fmt.Errorf("append json entry: %w", err)
+		}
+	default:
+		info, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("stat feedback file: %w", err)
+		}
+		if info.Size() == 0 {
+			if _, err := file.WriteString("# Feedback\n\n"); err != nil {
+				return fmt.Errorf("write header: %w", err)
+			}
+		}
 
-	if _, err := file.WriteString(item.MarkdownEntry()); err != nil {
-		return fmt.Errorf("append entry: %w", err)
+		if _, err := file.WriteString(item.MarkdownEntry()); err != nil {
+			return fmt.Errorf("append markdown entry: %w", err)
+		}
 	}
 
 	return nil

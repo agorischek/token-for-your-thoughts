@@ -56,6 +56,13 @@ func (i Item) MetadataJSON() string {
 	return string(data)
 }
 
+func (i Item) JSON(pretty bool) ([]byte, error) {
+	if pretty {
+		return json.MarshalIndent(i, "", "  ")
+	}
+	return json.Marshal(i)
+}
+
 func (i Item) MarkdownEntry() string {
 	var builder strings.Builder
 

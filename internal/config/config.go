@@ -15,6 +15,7 @@ const (
 	defaultMCPToolName                  = "submit_feedback"
 	defaultMCPDescription               = "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
 	defaultFeedbackPath                 = "FEEDBACK.md"
+	defaultFeedbackJSONPath             = "FEEDBACK.jsonl"
 	defaultGitRemote                    = "origin"
 	defaultGitBranch                    = "feedback"
 	defaultGitDirectory                 = ".feedback"
@@ -40,6 +41,7 @@ type SinkConfig struct {
 
 	Path             string            `json:"path,omitempty"`
 	Directory        string            `json:"directory,omitempty"`
+	Format           string            `json:"format,omitempty"`
 	Command          string            `json:"command,omitempty"`
 	Args             []string          `json:"args,omitempty"`
 	Method           string            `json:"method,omitempty"`
@@ -112,11 +114,16 @@ func (c *Config) applyDefaults() {
 	for i := range c.Sinks {
 		sink := &c.Sinks[i]
 		sink.Type = strings.ToLower(strings.TrimSpace(sink.Type))
+		sink.Format = normalizeFormat(sink.Format)
 
 		switch sink.Type {
 		case "file":
 			if strings.TrimSpace(sink.Path) == "" {
-				sink.Path = defaultFeedbackPath
+				if sink.Format == "json" {
+					sink.Path = defaultFeedbackJSONPath
+				} else {
+					sink.Path = defaultFeedbackPath
+				}
 			}
 		case "git":
 			if strings.TrimSpace(sink.Directory) == "" {
@@ -171,6 +178,9 @@ func (c Config) validate() error {
 	for _, sink := range c.Sinks {
 		switch sink.Type {
 		case "file":
+			if !isSupportedFormat(sink.Format) {
+				return fmt.Errorf("file sink format must be markdown or json")
+			}
 		case "command":
 			if strings.TrimSpace(sink.Command) == "" {
 				return errors.New("command sink requires command")
@@ -186,6 +196,9 @@ func (c Config) validate() error {
 				return errors.New("application_insights sink requires event_name")
 			}
 		case "git":
+			if !isSupportedFormat(sink.Format) {
+				return fmt.Errorf("git sink format must be markdown or json")
+			}
 			if strings.TrimSpace(sink.Branch) == "" {
 				return errors.New("git sink requires branch")
 			}
@@ -215,6 +228,21 @@ func (c Config) validate() error {
 	}
 
 	return nil
+}
+
+func normalizeFormat(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", "markdown", "md":
+		return "markdown"
+	case "json":
+		return "json"
+	default:
+		return strings.ToLower(strings.TrimSpace(format))
+	}
+}
+
+func isSupportedFormat(format string) bool {
+	return format == "markdown" || format == "json"
 }
 
 func locate(explicitPath, startDir string) (string, error) {
