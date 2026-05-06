@@ -21,11 +21,14 @@ type CommandDestination struct {
 	args    []string
 	method  string
 
-	cmd        *exec.Cmd
-	stdin      io.WriteCloser
-	decoder    *json.Decoder
-	stderr     bytes.Buffer
-	waitResult chan error
+	cmd     *exec.Cmd
+	stdin   io.WriteCloser
+	decoder *json.Decoder
+	stderr  bytes.Buffer
+
+	// exited is closed when the subprocess exits; exitErr holds the result.
+	exited  chan struct{}
+	exitErr error
 
 	mu     sync.Mutex
 	closed bool
@@ -59,10 +62,10 @@ func NewCommandDestination(cfg config.DestinationConfig) (*CommandDestination, e
 	}
 
 	destination := &CommandDestination{
-		command:    cfg.Command,
-		args:       append([]string(nil), cfg.Args...),
-		method:     cfg.Method,
-		waitResult: make(chan error, 1),
+		command: cfg.Command,
+		args:    append([]string(nil), cfg.Args...),
+		method:  cfg.Method,
+		exited:  make(chan struct{}),
 	}
 
 	if err := destination.start(); err != nil {
@@ -124,7 +127,7 @@ func (s *CommandDestination) Close(ctx context.Context) error {
 	s.closed = true
 	stdin := s.stdin
 	cmd := s.cmd
-	waitResult := s.waitResult
+	exited := s.exited
 	s.mu.Unlock()
 
 	if stdin != nil {
@@ -135,18 +138,18 @@ func (s *CommandDestination) Close(ctx context.Context) error {
 	}
 
 	select {
-	case err := <-waitResult:
-		if err != nil {
-			return fmt.Errorf("command destination process failed: %w", err)
+	case <-exited:
+		if s.exitErr != nil {
+			return fmt.Errorf("command destination process failed: %w", s.exitErr)
 		}
 		return nil
 	case <-ctx.Done():
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
 		}
-		err := <-waitResult
-		if err != nil {
-			return errors.Join(ctx.Err(), fmt.Errorf("command destination process failed: %w", err))
+		<-exited
+		if s.exitErr != nil {
+			return errors.Join(ctx.Err(), fmt.Errorf("command destination process failed: %w", s.exitErr))
 		}
 		return ctx.Err()
 	}
@@ -176,7 +179,8 @@ func (s *CommandDestination) start() error {
 		_, _ = io.Copy(&s.stderr, stderr)
 	}()
 	go func() {
-		s.waitResult <- cmd.Wait()
+		s.exitErr = cmd.Wait()
+		close(s.exited)
 	}()
 
 	s.cmd = cmd
@@ -187,9 +191,9 @@ func (s *CommandDestination) start() error {
 
 func (s *CommandDestination) checkExited() error {
 	select {
-	case err := <-s.waitResult:
-		if err != nil {
-			return s.wrapProcessError("command destination process failed", err)
+	case <-s.exited:
+		if s.exitErr != nil {
+			return s.wrapProcessError("command destination process failed", s.exitErr)
 		}
 		return errors.New("command destination process exited unexpectedly")
 	default:
