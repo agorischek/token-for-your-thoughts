@@ -34,6 +34,14 @@ const (
 	defaultOTelServiceName              = "tfyt"
 )
 
+func defaultConfig() Config {
+	return Config{
+		Destinations: []DestinationConfig{
+			{Type: "file", Path: defaultFeedbackPath, Format: "markdown"},
+		},
+	}
+}
+
 type Config struct {
 	Schema       string              `json:"$schema,omitempty" toml:"-"`
 	EnvFilePath  string              `json:"env_file_path,omitempty" toml:"env_file_path"`
@@ -84,6 +92,12 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 	path, err := locate(explicitPath, startDir)
 	if err != nil {
 		return Config{}, "", err
+	}
+
+	if path == "" {
+		cfg := defaultConfig()
+		cfg.applyDefaults()
+		return cfg, "", nil
 	}
 
 	data, err := os.ReadFile(path)
@@ -523,7 +537,7 @@ func locate(explicitPath, startDir string) (string, error) {
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", fmt.Errorf("could not find %s or %s in %s or its parents", DefaultTOMLFileName, DefaultJSONFileName, startDir)
+			return "", nil
 		}
 		current = parent
 	}

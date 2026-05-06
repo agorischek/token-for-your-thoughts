@@ -263,7 +263,10 @@ func loadRuntimeConfig(ctx context.Context, explicitPath string) (*runtimeConfig
 		return nil, err
 	}
 
-	baseDir := filepath.Dir(resolvedPath)
+	baseDir := "."
+	if resolvedPath != "" {
+		baseDir = filepath.Dir(resolvedPath)
+	}
 	repoRoot, err := gitRoot(baseDir)
 	if err != nil {
 		if needsGitDestination(cfg) {
