@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	semver "github.com/Masterminds/semver/v3"
 	selfupdate "github.com/creativeprojects/go-selfupdate"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
@@ -161,9 +162,13 @@ func runUpdate(ctx context.Context, version string, stdout io.Writer) error {
 		return fmt.Errorf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 
-	if latest.LessOrEqual(version) {
-		fmt.Fprintf(stdout, "already up to date (%s)\n", version)
-		return nil
+	// Only compare versions if the current version is valid semver.
+	// With go install, version is "dev" which isn't parseable.
+	if _, err := semver.NewVersion(version); err == nil {
+		if latest.LessOrEqual(version) {
+			fmt.Fprintf(stdout, "already up to date (%s)\n", version)
+			return nil
+		}
 	}
 
 	exe, err := selfupdate.ExecutablePath()
