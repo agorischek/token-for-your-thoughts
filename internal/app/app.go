@@ -224,9 +224,16 @@ format = "markdown"
 # headers_env = "OTEL_HEADERS"
 # service_name = "tfyt"
 
-# Command destination — pipes feedback over JSON-RPC to a subprocess.
+# Command destination — runs a one-shot subprocess per feedback item.
 # [[destinations]]
 # type = "command"
+# command = "/usr/local/bin/feedback-hook"
+# args = ["--mode", "agent"]
+# content_mode = "json"
+
+# Process destination — keeps a JSON-RPC subprocess alive and reuses it.
+# [[destinations]]
+# type = "process"
 # command = "/usr/local/bin/feedback-bridge"
 # args = ["--stdio"]
 # method = "submit_feedback"

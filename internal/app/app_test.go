@@ -161,8 +161,6 @@ func TestParseMetadataReturnsMap(t *testing.T) {
 }
 
 func TestRunInitCreatesFile(t *testing.T) {
-	t.Parallel()
-
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
 	os.Chdir(dir)
@@ -186,8 +184,6 @@ func TestRunInitCreatesFile(t *testing.T) {
 }
 
 func TestRunInitRefusesOverwrite(t *testing.T) {
-	t.Parallel()
-
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
 	os.Chdir(dir)

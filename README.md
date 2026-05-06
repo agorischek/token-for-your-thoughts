@@ -8,6 +8,8 @@ Token For Your Thoughts (`tfyt`) is a utility for agents to provide feedback on 
 
 ## Setup
 
+If you are a coding agent helping a user adopt `tfyt` in another repository, start with [AGENTGUIDE.md](/Users/umeboshi/Git/token-for-your-thoughts/AGENTGUIDE.md).
+
 You can install `tfyt` either by downloading a prebuilt binary from the [GitHub Releases page](https://github.com/agorischek/token-for-your-thoughts/releases) or by building and installing it with Go.
 
 To install with Go:
@@ -114,11 +116,24 @@ The git destination writes each feedback item into its own file on a dedicated b
 
 #### `command`
 
-The command destination hands feedback off to another local process over JSON-RPC 2.0. `tfyt` starts the configured subprocess, sends the full feedback item on stdin, and reads the response from stdout. The default JSON-RPC method name is `submit_feedback`, though you can override it with `method`. When `tfyt` is running as an MCP server, the subprocess is kept alive and reused across submissions instead of being restarted every time.
+The command destination runs a fresh subprocess for each feedback item. This is the best fit for simple hooks, scripts, or wrappers that should do one thing and exit. The feedback payload can be delivered either as JSON on stdin with `content_mode: "json"` or as generated command-line flags with `content_mode: "args"`. In args mode, `tfyt` appends `--id`, `--provider`, `--feedback`, `--source`, `--created-at`, and, when metadata exists, `--metadata-json`.
 
 ```json
 {
   "type": "command",
+  "command": "/usr/local/bin/feedback-hook",
+  "args": ["--mode", "agent"],
+  "content_mode": "json"
+}
+```
+
+#### `process`
+
+The process destination is the long-lived JSON-RPC variant. `tfyt` starts the configured subprocess, sends feedback items over stdio using JSON-RPC 2.0, and reads a response for each submission. The default method name is `submit_feedback`. When `tfyt` is running as an MCP server, this destination keeps the subprocess alive and reuses it across submissions instead of restarting it every time.
+
+```json
+{
+  "type": "process",
   "command": "/usr/local/bin/feedback-bridge",
   "args": ["--stdio"],
   "method": "submit_feedback"

@@ -43,6 +43,8 @@ func NewManager(ctx context.Context, cfg config.Config, baseDir, repoRoot string
 			destination, err = NewHTTPDestination(destinationConfig)
 		case "command":
 			destination, err = NewCommandDestination(destinationConfig)
+		case "process":
+			destination, err = NewProcessDestination(destinationConfig)
 		case "application_insights":
 			destination, err = NewApplicationInsightsDestination(destinationConfig)
 		case "github_discussions":

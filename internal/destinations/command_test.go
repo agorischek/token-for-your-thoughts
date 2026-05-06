@@ -6,28 +6,28 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-func TestCommandSinkSubmit(t *testing.T) {
+func TestCommandDestinationSubmitJSON(t *testing.T) {
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
 	destination, err := NewCommandDestination(config.DestinationConfig{
-		Type:    "command",
-		Command: os.Args[0],
-		Args:    []string{"-test.run=TestHelperProcessCommandSink", "--", "ok"},
-		Method:  "submit_feedback",
+		Type:        "command",
+		Command:     os.Args[0],
+		Args:        []string{"-test.run=TestHelperProcessCommandDestination", "--", "json-ok"},
+		ContentMode: "json",
 	})
 	if err != nil {
 		t.Fatalf("new command destination: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "The command destination should deliver JSON-RPC over stdio.", "cli", map[string]any{"tool": "test"})
+	item, err := feedback.New("Claude Code", "The command destination should send JSON over stdin.", "cli", map[string]any{"tool": "test"})
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
@@ -35,19 +35,78 @@ func TestCommandSinkSubmit(t *testing.T) {
 	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
-	if err := destination.Close(context.Background()); err != nil {
-		t.Fatalf("close: %v", err)
-	}
 }
 
-func TestCommandSinkSubmitJSONRPCError(t *testing.T) {
+func TestCommandDestinationSubmitArgs(t *testing.T) {
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
 	destination, err := NewCommandDestination(config.DestinationConfig{
-		Type:    "command",
-		Command: os.Args[0],
-		Args:    []string{"-test.run=TestHelperProcessCommandSink", "--", "error"},
-		Method:  "submit_feedback",
+		Type:        "command",
+		Command:     os.Args[0],
+		Args:        []string{"-test.run=TestHelperProcessCommandDestination", "--", "args-ok"},
+		ContentMode: "args",
+	})
+	if err != nil {
+		t.Fatalf("new command destination: %v", err)
+	}
+
+	item, err := feedback.New("Claude Code", "The command destination should send feedback as CLI flags.", "cli", map[string]any{"tool": "test"})
+	if err != nil {
+		t.Fatalf("new item: %v", err)
+	}
+
+	if err := destination.Submit(context.Background(), item); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+}
+
+func TestCommandDestinationIsOneShot(t *testing.T) {
+	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
+
+	counterFile := filepathJoin(t.TempDir(), "starts.txt")
+	t.Setenv("GO_HELPER_START_COUNT_FILE", counterFile)
+
+	destination, err := NewCommandDestination(config.DestinationConfig{
+		Type:        "command",
+		Command:     os.Args[0],
+		Args:        []string{"-test.run=TestHelperProcessCommandDestination", "--", "json-ok"},
+		ContentMode: "json",
+	})
+	if err != nil {
+		t.Fatalf("new command destination: %v", err)
+	}
+
+	first, _ := feedback.New("Claude Code", "First one-shot.", "cli", nil)
+	second, _ := feedback.New("Claude Code", "Second one-shot.", "cli", nil)
+
+	if err := destination.Submit(context.Background(), first); err != nil {
+		t.Fatalf("submit first: %v", err)
+	}
+	if err := destination.Submit(context.Background(), second); err != nil {
+		t.Fatalf("submit second: %v", err)
+	}
+
+	countBytes, err := os.ReadFile(counterFile)
+	if err != nil {
+		t.Fatalf("read counter file: %v", err)
+	}
+	count, err := strconv.Atoi(string(countBytes))
+	if err != nil {
+		t.Fatalf("parse counter file: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected helper process to start twice, got %d", count)
+	}
+}
+
+func TestCommandDestinationReportsFailure(t *testing.T) {
+	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
+
+	destination, err := NewCommandDestination(config.DestinationConfig{
+		Type:        "command",
+		Command:     os.Args[0],
+		Args:        []string{"-test.run=TestHelperProcessCommandDestination", "--", "fail"},
+		ContentMode: "json",
 	})
 	if err != nil {
 		t.Fatalf("new command destination: %v", err)
@@ -61,65 +120,14 @@ func TestCommandSinkSubmitJSONRPCError(t *testing.T) {
 	if err := destination.Submit(context.Background(), item); err == nil {
 		t.Fatal("expected submit error")
 	}
-	if err := destination.Close(context.Background()); err != nil {
-		t.Fatalf("close: %v", err)
-	}
 }
 
-func TestCommandSinkReusesProcess(t *testing.T) {
-	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
-
-	counterFile := filepath.Join(t.TempDir(), "starts.txt")
-	t.Setenv("GO_HELPER_START_COUNT_FILE", counterFile)
-
-	destination, err := NewCommandDestination(config.DestinationConfig{
-		Type:    "command",
-		Command: os.Args[0],
-		Args:    []string{"-test.run=TestHelperProcessCommandSink", "--", "ok"},
-		Method:  "submit_feedback",
-	})
-	if err != nil {
-		t.Fatalf("new command destination: %v", err)
-	}
-
-	first, err := feedback.New("Claude Code", "First submission should keep the helper alive.", "mcp", nil)
-	if err != nil {
-		t.Fatalf("new first item: %v", err)
-	}
-	second, err := feedback.New("Claude Code", "Second submission should reuse the helper process.", "mcp", nil)
-	if err != nil {
-		t.Fatalf("new second item: %v", err)
-	}
-
-	if err := destination.Submit(context.Background(), first); err != nil {
-		t.Fatalf("submit first: %v", err)
-	}
-	if err := destination.Submit(context.Background(), second); err != nil {
-		t.Fatalf("submit second: %v", err)
-	}
-	if err := destination.Close(context.Background()); err != nil {
-		t.Fatalf("close: %v", err)
-	}
-
-	countBytes, err := os.ReadFile(counterFile)
-	if err != nil {
-		t.Fatalf("read counter file: %v", err)
-	}
-	count, err := strconv.Atoi(string(countBytes))
-	if err != nil {
-		t.Fatalf("parse counter file: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("expected helper process to start once, got %d", count)
-	}
-}
-
-func TestHelperProcessCommandSink(t *testing.T) {
+func TestHelperProcessCommandDestination(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
 
-	mode := "ok"
+	mode := "json-ok"
 	for i, arg := range os.Args {
 		if arg == "--" && i+1 < len(os.Args) {
 			mode = os.Args[i+1]
@@ -128,42 +136,62 @@ func TestHelperProcessCommandSink(t *testing.T) {
 	}
 
 	if counterFile := os.Getenv("GO_HELPER_START_COUNT_FILE"); counterFile != "" {
-		if err := os.WriteFile(counterFile, []byte("1"), 0o644); err != nil {
+		count := 0
+		if raw, err := os.ReadFile(counterFile); err == nil {
+			count, _ = strconv.Atoi(string(raw))
+		}
+		count++
+		if err := os.WriteFile(counterFile, []byte(strconv.Itoa(count)), 0o644); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	}
 
-	decoder := json.NewDecoder(os.Stdin)
-	encoder := json.NewEncoder(os.Stdout)
-	for {
-		var request jsonRPCRequest
-		if err := decoder.Decode(&request); err != nil {
-			if err == io.EOF {
-				os.Exit(0)
-			}
+	switch mode {
+	case "json-ok":
+		var item feedback.Item
+		if err := json.NewDecoder(os.Stdin).Decode(&item); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-
-		if request.JSONRPC != "2.0" || request.Method != "submit_feedback" || request.Params.Provider == "" || request.Params.Feedback == "" {
-			fmt.Fprintln(os.Stderr, "unexpected request payload")
+		if item.Provider == "" || item.Feedback == "" {
+			fmt.Fprintln(os.Stderr, "missing feedback payload")
 			os.Exit(1)
 		}
-
-		response := jsonRPCResponse{
-			JSONRPC: "2.0",
-			ID:      request.ID,
-			Result:  json.RawMessage(`{"ok":true}`),
-		}
-		if mode == "error" {
-			response.Error = &jsonRPCError{Code: -32000, Message: "destination rejected feedback"}
-			response.Result = nil
-		}
-
-		if err := encoder.Encode(response); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+		os.Exit(0)
+	case "args-ok":
+		parsed := parseHelperArgs(os.Args)
+		if parsed["provider"] == "" || parsed["feedback"] == "" || parsed["created-at"] == "" {
+			fmt.Fprintln(os.Stderr, "missing expected feedback args")
 			os.Exit(1)
 		}
+		if parsed["metadata-json"] == "" || !strings.Contains(parsed["metadata-json"], `"tool":"test"`) {
+			fmt.Fprintln(os.Stderr, "missing metadata json arg")
+			os.Exit(1)
+		}
+		os.Exit(0)
+	case "fail":
+		io.Copy(io.Discard, os.Stdin)
+		fmt.Fprintln(os.Stderr, "helper rejected feedback")
+		os.Exit(2)
+	default:
+		fmt.Fprintln(os.Stderr, "unknown mode")
+		os.Exit(1)
 	}
+}
+
+func parseHelperArgs(args []string) map[string]string {
+	values := map[string]string{}
+	for i := 0; i < len(args); i++ {
+		if !strings.HasPrefix(args[i], "--") || i+1 >= len(args) {
+			continue
+		}
+		values[strings.TrimPrefix(args[i], "--")] = args[i+1]
+		i++
+	}
+	return values
+}
+
+func filepathJoin(parts ...string) string {
+	return strings.Join(parts, string(os.PathSeparator))
 }

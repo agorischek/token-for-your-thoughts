@@ -20,6 +20,12 @@
     },
     {
       "type": "command",
+      "command": "/usr/local/bin/feedback-hook",
+      "args": ["--mode", "agent"],
+      "content_mode": "json"
+    },
+    {
+      "type": "process",
       "command": "/usr/local/bin/feedback-bridge",
       "args": ["--stdio"],
       "method": "submit_feedback"

@@ -27,6 +27,7 @@ const (
 	defaultGitDirectory                 = ".feedback"
 	defaultGitCommitPrefix              = "Add feedback entry"
 	defaultCommandMethod                = "submit_feedback"
+	defaultCommandContentMode           = "json"
 	defaultApplicationInsightsEventName = "tfyt feedback"
 	defaultHTTPMethod                   = "POST"
 	defaultHTTPTimeoutSeconds           = 10
@@ -66,6 +67,7 @@ type DestinationConfig struct {
 	Command             string            `json:"command,omitempty" toml:"command"`
 	Args                []string          `json:"args,omitempty" toml:"args"`
 	Method              string            `json:"method,omitempty" toml:"method"`
+	ContentMode         string            `json:"content_mode,omitempty" toml:"content_mode"`
 	TimeoutSeconds      int               `json:"timeout_seconds,omitempty" toml:"timeout_seconds"`
 	SuccessStatuses     []int             `json:"success_statuses,omitempty" toml:"success_statuses"`
 	ConnectionString    string            `json:"connection_string,omitempty" toml:"connection_string"`
@@ -192,6 +194,10 @@ func (c *Config) applyDefaults() {
 				destination.CommitMessage = defaultGitCommitPrefix + " {{ .ID }}"
 			}
 		case "command":
+			if strings.TrimSpace(destination.ContentMode) == "" {
+				destination.ContentMode = defaultCommandContentMode
+			}
+		case "process":
 			if strings.TrimSpace(destination.Method) == "" {
 				destination.Method = defaultCommandMethod
 			}
@@ -256,8 +262,15 @@ func (c Config) validate() error {
 			if strings.TrimSpace(destination.Command) == "" {
 				return errors.New("command destination requires command")
 			}
+			if destination.ContentMode != "json" && destination.ContentMode != "args" {
+				return errors.New("command destination content_mode must be json or args")
+			}
+		case "process":
+			if strings.TrimSpace(destination.Command) == "" {
+				return errors.New("process destination requires command")
+			}
 			if strings.TrimSpace(destination.Method) == "" {
-				return errors.New("command destination requires method")
+				return errors.New("process destination requires method")
 			}
 		case "application_insights":
 			if strings.TrimSpace(destination.ConnectionString) == "" {
@@ -329,6 +342,11 @@ var allowedFieldsByDestinationType = map[string]map[string]bool{
 		"commit_message": true,
 	},
 	"command": {
+		"command":      true,
+		"args":         true,
+		"content_mode": true,
+	},
+	"process": {
 		"command": true,
 		"args":    true,
 		"method":  true,
@@ -398,6 +416,7 @@ func (s DestinationConfig) rejectUnknownFields() error {
 		{"command", strings.TrimSpace(s.Command) != ""},
 		{"args", len(s.Args) > 0},
 		{"method", strings.TrimSpace(s.Method) != ""},
+		{"content_mode", strings.TrimSpace(s.ContentMode) != ""},
 		{"timeout_seconds", s.TimeoutSeconds != 0},
 		{"success_statuses", len(s.SuccessStatuses) > 0},
 		{"connection_string", strings.TrimSpace(s.ConnectionString) != ""},

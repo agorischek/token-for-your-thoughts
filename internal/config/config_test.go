@@ -196,6 +196,25 @@ func TestLoadAppliesCommandDefaults(t *testing.T) {
 		t.Fatalf("load config: %v", err)
 	}
 
+	if cfg.Destinations[0].ContentMode != "json" {
+		t.Fatalf("unexpected content mode %q", cfg.Destinations[0].ContentMode)
+	}
+}
+
+func TestLoadAppliesProcessDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"process","command":"bridge"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
 	if cfg.Destinations[0].Method != "submit_feedback" {
 		t.Fatalf("unexpected method %q", cfg.Destinations[0].Method)
 	}

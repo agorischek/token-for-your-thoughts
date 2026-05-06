@@ -52,6 +52,9 @@
           "$ref": "#/$defs/commandDestination"
         },
         {
+          "$ref": "#/$defs/processDestination"
+        },
+        {
           "$ref": "#/$defs/httpDestination"
         },
         {
@@ -141,6 +144,36 @@
       "properties": {
         "type": {
           "const": "command"
+        },
+        "command": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_mode": {
+          "type": "string",
+          "enum": [
+            "json",
+            "args"
+          ],
+          "description": "How tfyt passes feedback to the subprocess. Defaults to json."
+        }
+      },
+      "required": [
+        "type",
+        "command"
+      ]
+    },
+    "processDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "process"
         },
         "command": {
           "type": "string"
