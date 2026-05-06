@@ -116,17 +116,11 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 }
 
 func (c Config) ToolName() string {
-	if strings.TrimSpace(c.MCP.ToolName) != "" {
-		return c.MCP.ToolName
-	}
-	return defaultMCPToolName
+	return c.MCP.ToolName
 }
 
 func (c Config) ToolDescription() string {
-	if strings.TrimSpace(c.MCP.ToolDescription) != "" {
-		return c.MCP.ToolDescription
-	}
-	return defaultMCPDescription
+	return c.MCP.ToolDescription
 }
 
 func (c *Config) applyDefaults() {
