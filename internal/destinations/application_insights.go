@@ -135,7 +135,7 @@ func (s *ApplicationInsightsDestination) Submit(ctx context.Context, item feedba
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB cap
 	if err != nil {
 		return fmt.Errorf("read application insights response: %w", err)
 	}
