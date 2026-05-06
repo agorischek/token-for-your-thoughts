@@ -4,12 +4,12 @@
 tool_name = "submit_feedback"
 tool_description = "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
 
-[[sinks]]
+[[destinations]]
 type = "file"
 path = "FEEDBACK.md"
 format = "markdown"
 
-[[sinks]]
+[[destinations]]
 type = "git"
 branch = "feedback"
 remote = "origin"
@@ -17,31 +17,31 @@ directory = ".feedback"
 format = "markdown"
 commit_message = "Add feedback entry {{ .ID }}"
 
-[[sinks]]
+[[destinations]]
 type = "command"
 command = "/usr/local/bin/feedback-bridge"
 args = ["--stdio"]
 method = "submit_feedback"
 
-[[sinks]]
+[[destinations]]
 type = "http"
 url_env = "TFYT_HTTP_URL"
 headers_env = "TFYT_HTTP_HEADERS"
 timeout_seconds = 10
 success_statuses = [202]
 
-[[sinks]]
+[[destinations]]
 type = "application_insights"
 connection_string_env = "APPINSIGHTS_CONNECTION_STRING"
 event_name = "tfyt feedback"
 
-[[sinks]]
+[[destinations]]
 type = "sql"
 driver = "postgres"
 dsn = "postgres://user:pass@localhost:5432/app?sslmode=disable"
 insert_statement = "INSERT INTO feedback (id, provider, feedback, source, created_at, metadata_json) VALUES ($1, $2, $3, $4, $5, $6)"
 
-[[sinks]]
+[[destinations]]
 type = "otel"
 endpoint_env = "BETTER_STACK_OTEL_ENDPOINT"
 headers_env = "BETTER_STACK_OTEL_HEADERS"

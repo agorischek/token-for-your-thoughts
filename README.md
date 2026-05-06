@@ -1,12 +1,16 @@
+<img src="./assets/logo.png" alt="Token For Your Thoughts logo" height="150" />
+
 # Token For Your Thoughts
 
 Are your coding agents dealing with unreliable tools, conflicting instructions, and outdated documentation? Would you know it if they were? _What if they could tell you?_
 
-Token For Your Thoughts (`tfyt`) is a utility for agents to provide feedback on tools, skills, and repository experience so you can improve them. It can be used both via CLI and via MCP. Feedback can be sent to a file, an HTTP webhook, an OpenTelemetry endpoint, or any other process.
+Token For Your Thoughts (`tfyt`) is a utility for agents to provide feedback on tools, skills, and overall repository experience — so you can make things better for them. It can be used via both MCP and CLI, and feedback can be sent to a file, an HTTP webhook, an OpenTelemetry endpoint, or any other process.
 
 ## Setup
 
-First, install:
+You can install `tfyt` either by downloading a prebuilt binary from the [GitHub Releases page](https://github.com/agorischek/token-for-your-thoughts/releases) or by building and installing it with Go.
+
+To install with Go:
 
 ```bash
 go install github.com/agorischek/token-for-your-thoughts/cmd/tfyt@latest
@@ -16,7 +20,7 @@ For MCP usage, add `tfyt serve-mcp` to your MCP config.
 
 Update your `AGENTS.md` or similar instructions file to encourage agents to provide feedback.
 
-Feedback will be written to `FEEDBACK.md` by default. See below for configuration of other sinks.
+Feedback will be written to `FEEDBACK.md` by default. See below for configuration of other destinations.
 
 ## Commands
 
@@ -47,11 +51,9 @@ tfyt version
 
 If you set `env_file_path`, `tfyt` loads that env file before resolving any `*_env` config fields. Relative paths are resolved relative to the config file. Existing process environment variables win over values from the env file.
 
-A JSON Schema for the config lives at [tfyt.schema.json](/Users/umeboshi/Git/token-for-your-thoughts/tfyt.schema.json) and is included in GitHub release archives together with the example configs. The JSON example uses a top-level `$schema` property, and the TOML example uses Taplo's `#:schema` header directive so editors such as Even Better TOML can pick up the schema automatically.
+A JSON Schema for the config lives at [tfyt.schema.json](/Users/umeboshi/Git/token-for-your-thoughts/tfyt.schema.json) and is included in GitHub release archives together with the example configs.
 
-At startup, `tfyt` also validates the loaded config against that schema before applying runtime defaults.
-
-If `sinks` is omitted or empty, `tfyt` defaults to a single file sink that appends Markdown feedback to `FEEDBACK.md`.
+If `destinations` is omitted or empty, `tfyt` defaults to a single file destination that appends Markdown feedback to `FEEDBACK.md`.
 
 Example:
 
@@ -60,7 +62,7 @@ Example:
   "mcp": {
     "tool_name": "submit_feedback"
   },
-  "sinks": [
+  "destinations": [
     {
       "type": "file",
       "format": "markdown"
@@ -69,14 +71,11 @@ Example:
 }
 ```
 
-### Sinks
+### Destinations
 
 #### `file`
 
-- Appends Markdown entries to `FEEDBACK.md` by default.
-- Supports `format: "markdown"` and `format: "json"`.
-- JSON file output is newline-delimited JSON, so repeated submissions append cleanly. The default JSON filename is `feedback.jsonl`.
-- Example:
+The file destination is the default and is the simplest way to start collecting feedback. In Markdown mode it appends entries to `FEEDBACK.md`. In JSON mode it writes newline-delimited JSON so repeated submissions can be appended safely without rewriting the whole file; the default JSON filename is `feedback.jsonl`.
 
 ```json
 {
@@ -88,13 +87,7 @@ Example:
 
 #### `git`
 
-- Writes each feedback item into its own Markdown file named `{guid}.md`.
-- Stores those files under a configurable directory such as `.feedback/`.
-- Supports `format: "markdown"` and `format: "json"`.
-- JSON git output writes one pretty-printed `{guid}.json` file per feedback item.
-- Pushes to `origin` by default.
-- Uses the current repository `HEAD` as the branch base if the feedback branch does not exist yet.
-- Example:
+The git destination writes each feedback item into its own file on a dedicated branch, which is useful when you want feedback tracked alongside the repository without mixing it into the main working branch. Files are stored under a configurable directory such as `.feedback/`, with one `{guid}.md` or `{guid}.json` file per submission depending on the selected format. By default it pushes to `origin`, and if the feedback branch does not exist yet it uses the current repository `HEAD` as the starting point.
 
 ```json
 {
@@ -108,12 +101,7 @@ Example:
 
 #### `command`
 
-- Spawns a configured subprocess.
-- Sends one JSON-RPC 2.0 request over stdin and reads one response from stdout.
-- When `tfyt` runs as an MCP server, the subprocess stays alive for the lifetime of the server and is reused across submissions.
-- The default method name is `submit_feedback`, but you can override it with `method`.
-- The request `params` payload is the full feedback item: `id`, `provider`, `feedback`, `source`, `created_at`, and optional `metadata`.
-- Example:
+The command destination hands feedback off to another local process over JSON-RPC 2.0. `tfyt` starts the configured subprocess, sends the full feedback item on stdin, and reads the response from stdout. The default JSON-RPC method name is `submit_feedback`, though you can override it with `method`. When `tfyt` is running as an MCP server, the subprocess is kept alive and reused across submissions instead of being restarted every time.
 
 ```json
 {
@@ -126,14 +114,7 @@ Example:
 
 #### `http`
 
-- Sends each feedback item as JSON to a webhook endpoint.
-- Uses `POST` by default, but you can override it with `method`.
-- The request body is the full feedback item: `id`, `provider`, `feedback`, `source`, `created_at`, and optional `metadata`.
-- Supports either `url` or `url_env`, and either `headers` or `headers_env`, but not both forms at once.
-- Defaults `timeout_seconds` to `10`.
-- If `success_statuses` is omitted, any `2xx` response counts as success.
-- `headers_env` should contain a JSON object string such as `{"Authorization":"Bearer ..."}`. In a `.env` file, wrap that JSON in single quotes.
-- Example:
+The HTTP destination sends each feedback item as JSON to a webhook or ingestion endpoint. It uses `POST` by default, but you can choose a different method if your endpoint expects one. You can configure the URL and headers directly or source them from environment variables with `url_env` and `headers_env`, but each setting must come from only one place. Requests default to a `10` second timeout, and if you do not specify `success_statuses`, any `2xx` response is treated as success. When using `headers_env`, the env var should contain a JSON object string such as `{"Authorization":"Bearer ..."}`; in a `.env` file, wrap that JSON in single quotes.
 
 ```json
 {
@@ -147,11 +128,7 @@ Example:
 
 #### `application_insights`
 
-- Sends each feedback item as a `customEvent` to the Application Insights ingestion endpoint.
-- Uses a standard Application Insights connection string with `InstrumentationKey` and optionally `IngestionEndpoint` or `EndpointSuffix`.
-- Supports either `connection_string` or `connection_string_env`, but not both.
-- Defaults the event name to `tfyt feedback`, but you can override it with `event_name`.
-- Example:
+The Application Insights destination sends each feedback item as a `customEvent` to Azure Application Insights. It uses a standard connection string with `InstrumentationKey` and can also honor `IngestionEndpoint` or `EndpointSuffix` when those are present. You can provide the connection string directly or through `connection_string_env`, but not both at once. The event name defaults to `tfyt feedback`, and you can change it with `event_name` if you want the events grouped differently in Azure.
 
 ```json
 {
@@ -163,11 +140,7 @@ Example:
 
 #### `sql`
 
-- Does not bundle a database driver by default.
-- Requires a driver name, DSN, and custom `insert_statement`.
-- If you want `auto_create`, also provide a `create_statement`.
-- Use a custom build that imports your SQL driver of choice.
-- Example:
+The SQL destination is intentionally minimal and expects you to bring your own driver. You provide the driver name, DSN, and an `insert_statement`, which lets the destination work with many SQL backends without baking one specific database into the binary. If you want `tfyt` to create the table automatically, also provide a `create_statement`. In practice this destination is best used in a custom build that imports the SQL driver you want.
 
 ```json
 {
@@ -180,12 +153,7 @@ Example:
 
 #### `otel`
 
-- Sends each feedback item as an OTLP log record.
-- Uses the feedback text as the log body and attaches the ID, provider, source, timestamp, and metadata as attributes.
-- Works with generic OTLP/HTTP log endpoints such as Better Stack when you point `endpoint` at `/v1/logs` and provide the required auth headers.
-- Supports either `endpoint` or `endpoint_env`, and either `headers` or `headers_env`, but not both forms at once.
-- `headers_env` should contain a JSON object string such as `{"Authorization":"Bearer ..."}`. In a `.env` file, wrap that JSON in single quotes.
-- Example:
+The OpenTelemetry destination emits each feedback item as an OTLP log record. The feedback text becomes the log body, while the ID, provider, source, timestamp, and metadata are attached as attributes. This works well with generic OTLP/HTTP log backends such as Better Stack when you point `endpoint` at a `/v1/logs` URL and provide the necessary auth headers. As with the HTTP destination, `endpoint` and `headers` can come either directly from config or from `*_env` fields, but not both at the same time; if you use `headers_env`, the env var should contain a JSON object string and should be single-quoted in a `.env` file.
 
 ```json
 {
@@ -198,11 +166,7 @@ Example:
 
 ## MCP Tool
 
-The default MCP tool is named `submit_feedback`.
-
-Default description:
-
-> Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies.
+The default MCP tool is named `submit_feedback`. Both the tool name and description can be overriden via configuration.
 
 Tool input fields:
 

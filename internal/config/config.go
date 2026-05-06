@@ -35,10 +35,10 @@ const (
 )
 
 type Config struct {
-	Schema      string       `json:"$schema,omitempty" toml:"-"`
-	EnvFilePath string       `json:"env_file_path,omitempty" toml:"env_file_path"`
-	MCP         MCPConfig    `json:"mcp,omitempty" toml:"mcp"`
-	Sinks       []SinkConfig `json:"sinks,omitempty" toml:"sinks"`
+	Schema       string              `json:"$schema,omitempty" toml:"-"`
+	EnvFilePath  string              `json:"env_file_path,omitempty" toml:"env_file_path"`
+	MCP          MCPConfig           `json:"mcp,omitempty" toml:"mcp"`
+	Destinations []DestinationConfig `json:"destinations,omitempty" toml:"destinations"`
 }
 
 type MCPConfig struct {
@@ -46,7 +46,7 @@ type MCPConfig struct {
 	ToolDescription string `json:"tool_description" toml:"tool_description"`
 }
 
-type SinkConfig struct {
+type DestinationConfig struct {
 	Type string `json:"type" toml:"type"`
 
 	Path                string            `json:"path,omitempty" toml:"path"`
@@ -136,167 +136,167 @@ func (c *Config) applyDefaults() {
 	if strings.TrimSpace(c.MCP.ToolDescription) == "" {
 		c.MCP.ToolDescription = defaultMCPDescription
 	}
-	if len(c.Sinks) == 0 {
-		c.Sinks = []SinkConfig{{Type: "file"}}
+	if len(c.Destinations) == 0 {
+		c.Destinations = []DestinationConfig{{Type: "file"}}
 	}
 
-	for i := range c.Sinks {
-		sink := &c.Sinks[i]
-		sink.Type = strings.ToLower(strings.TrimSpace(sink.Type))
-		sink.Format = normalizeFormat(sink.Format)
+	for i := range c.Destinations {
+		destination := &c.Destinations[i]
+		destination.Type = strings.ToLower(strings.TrimSpace(destination.Type))
+		destination.Format = normalizeFormat(destination.Format)
 
-		switch sink.Type {
+		switch destination.Type {
 		case "file":
-			if strings.TrimSpace(sink.Path) == "" {
-				if sink.Format == "json" {
-					sink.Path = defaultFeedbackJSONPath
+			if strings.TrimSpace(destination.Path) == "" {
+				if destination.Format == "json" {
+					destination.Path = defaultFeedbackJSONPath
 				} else {
-					sink.Path = defaultFeedbackPath
+					destination.Path = defaultFeedbackPath
 				}
 			}
 		case "git":
-			if strings.TrimSpace(sink.Directory) == "" {
-				if strings.TrimSpace(sink.Path) != "" {
-					sink.Directory = sink.Path
+			if strings.TrimSpace(destination.Directory) == "" {
+				if strings.TrimSpace(destination.Path) != "" {
+					destination.Directory = destination.Path
 				} else {
-					sink.Directory = defaultGitDirectory
+					destination.Directory = defaultGitDirectory
 				}
 			}
-			if strings.TrimSpace(sink.Branch) == "" {
-				sink.Branch = defaultGitBranch
+			if strings.TrimSpace(destination.Branch) == "" {
+				destination.Branch = defaultGitBranch
 			}
-			if strings.TrimSpace(sink.Remote) == "" {
-				sink.Remote = defaultGitRemote
+			if strings.TrimSpace(destination.Remote) == "" {
+				destination.Remote = defaultGitRemote
 			}
-			if sink.Push == nil {
+			if destination.Push == nil {
 				value := true
-				sink.Push = &value
+				destination.Push = &value
 			}
-			if strings.TrimSpace(sink.CommitMessage) == "" {
-				sink.CommitMessage = defaultGitCommitPrefix + " {{ .ID }}"
+			if strings.TrimSpace(destination.CommitMessage) == "" {
+				destination.CommitMessage = defaultGitCommitPrefix + " {{ .ID }}"
 			}
 		case "command":
-			if strings.TrimSpace(sink.Method) == "" {
-				sink.Method = defaultCommandMethod
+			if strings.TrimSpace(destination.Method) == "" {
+				destination.Method = defaultCommandMethod
 			}
 		case "http":
-			if strings.TrimSpace(sink.Method) == "" {
-				sink.Method = defaultHTTPMethod
+			if strings.TrimSpace(destination.Method) == "" {
+				destination.Method = defaultHTTPMethod
 			}
-			if sink.TimeoutSeconds <= 0 {
-				sink.TimeoutSeconds = defaultHTTPTimeoutSeconds
+			if destination.TimeoutSeconds <= 0 {
+				destination.TimeoutSeconds = defaultHTTPTimeoutSeconds
 			}
 		case "application_insights":
-			if strings.TrimSpace(sink.EventName) == "" {
-				sink.EventName = defaultApplicationInsightsEventName
+			if strings.TrimSpace(destination.EventName) == "" {
+				destination.EventName = defaultApplicationInsightsEventName
 			}
 		case "sql":
-			if strings.TrimSpace(sink.Table) == "" {
-				sink.Table = defaultSQLTable
+			if strings.TrimSpace(destination.Table) == "" {
+				destination.Table = defaultSQLTable
 			}
-			if sink.AutoCreate == nil {
+			if destination.AutoCreate == nil {
 				value := false
-				sink.AutoCreate = &value
+				destination.AutoCreate = &value
 			}
 		case "otel":
-			if strings.TrimSpace(sink.ServiceName) == "" {
-				sink.ServiceName = defaultOTelServiceName
+			if strings.TrimSpace(destination.ServiceName) == "" {
+				destination.ServiceName = defaultOTelServiceName
 			}
 		}
 	}
 }
 
 func (c Config) validate() error {
-	for _, sink := range c.Sinks {
-		if err := sink.rejectUnknownFields(); err != nil {
+	for _, destination := range c.Destinations {
+		if err := destination.rejectUnknownFields(); err != nil {
 			return err
 		}
 
-		switch sink.Type {
+		switch destination.Type {
 		case "file":
-			if !isSupportedFormat(sink.Format) {
-				return fmt.Errorf("file sink format must be markdown or json")
+			if !isSupportedFormat(destination.Format) {
+				return fmt.Errorf("file destination format must be markdown or json")
 			}
 		case "http":
-			if hasBothValues(sink.URL, sink.URLEnv) {
-				return errors.New("http sink cannot set both url and url_env")
+			if hasBothValues(destination.URL, destination.URLEnv) {
+				return errors.New("http destination cannot set both url and url_env")
 			}
-			if strings.TrimSpace(sink.URL) == "" {
-				return errors.New("http sink requires url or url_env")
+			if strings.TrimSpace(destination.URL) == "" {
+				return errors.New("http destination requires url or url_env")
 			}
-			if len(sink.Headers) > 0 && strings.TrimSpace(sink.HeadersEnv) != "" {
-				return errors.New("http sink cannot set both headers and headers_env")
+			if len(destination.Headers) > 0 && strings.TrimSpace(destination.HeadersEnv) != "" {
+				return errors.New("http destination cannot set both headers and headers_env")
 			}
-			if strings.TrimSpace(sink.Method) == "" {
-				return errors.New("http sink requires method")
+			if strings.TrimSpace(destination.Method) == "" {
+				return errors.New("http destination requires method")
 			}
-			if sink.TimeoutSeconds <= 0 {
-				return errors.New("http sink timeout_seconds must be greater than zero")
+			if destination.TimeoutSeconds <= 0 {
+				return errors.New("http destination timeout_seconds must be greater than zero")
 			}
-			for _, status := range sink.SuccessStatuses {
+			for _, status := range destination.SuccessStatuses {
 				if status < 100 || status > 599 {
-					return fmt.Errorf("http sink success_statuses must contain valid HTTP status codes")
+					return fmt.Errorf("http destination success_statuses must contain valid HTTP status codes")
 				}
 			}
 		case "command":
-			if strings.TrimSpace(sink.Command) == "" {
-				return errors.New("command sink requires command")
+			if strings.TrimSpace(destination.Command) == "" {
+				return errors.New("command destination requires command")
 			}
-			if strings.TrimSpace(sink.Method) == "" {
-				return errors.New("command sink requires method")
+			if strings.TrimSpace(destination.Method) == "" {
+				return errors.New("command destination requires method")
 			}
 		case "application_insights":
-			if hasBothValues(sink.ConnectionString, sink.ConnectionStringEnv) {
-				return errors.New("application_insights sink cannot set both connection_string and connection_string_env")
+			if hasBothValues(destination.ConnectionString, destination.ConnectionStringEnv) {
+				return errors.New("application_insights destination cannot set both connection_string and connection_string_env")
 			}
-			if strings.TrimSpace(sink.ConnectionString) == "" {
-				return errors.New("application_insights sink requires connection_string or connection_string_env")
+			if strings.TrimSpace(destination.ConnectionString) == "" {
+				return errors.New("application_insights destination requires connection_string or connection_string_env")
 			}
-			if strings.TrimSpace(sink.EventName) == "" {
-				return errors.New("application_insights sink requires event_name")
+			if strings.TrimSpace(destination.EventName) == "" {
+				return errors.New("application_insights destination requires event_name")
 			}
 		case "git":
-			if !isSupportedFormat(sink.Format) {
-				return fmt.Errorf("git sink format must be markdown or json")
+			if !isSupportedFormat(destination.Format) {
+				return fmt.Errorf("git destination format must be markdown or json")
 			}
-			if strings.TrimSpace(sink.Branch) == "" {
-				return errors.New("git sink requires branch")
+			if strings.TrimSpace(destination.Branch) == "" {
+				return errors.New("git destination requires branch")
 			}
-			if strings.TrimSpace(sink.Remote) == "" {
-				return errors.New("git sink requires remote")
+			if strings.TrimSpace(destination.Remote) == "" {
+				return errors.New("git destination requires remote")
 			}
-			if strings.TrimSpace(sink.Directory) == "" && strings.TrimSpace(sink.Path) == "" {
-				return errors.New("git sink requires directory")
+			if strings.TrimSpace(destination.Directory) == "" && strings.TrimSpace(destination.Path) == "" {
+				return errors.New("git destination requires directory")
 			}
 		case "sql":
-			if strings.TrimSpace(sink.Driver) == "" {
-				return errors.New("sql sink requires driver")
+			if strings.TrimSpace(destination.Driver) == "" {
+				return errors.New("sql destination requires driver")
 			}
-			if strings.TrimSpace(sink.DSN) == "" {
-				return errors.New("sql sink requires dsn")
+			if strings.TrimSpace(destination.DSN) == "" {
+				return errors.New("sql destination requires dsn")
 			}
-			if strings.TrimSpace(sink.InsertStmt) == "" {
-				return errors.New("sql sink requires insert_statement")
+			if strings.TrimSpace(destination.InsertStmt) == "" {
+				return errors.New("sql destination requires insert_statement")
 			}
-			if sink.AutoCreate != nil && *sink.AutoCreate && strings.TrimSpace(sink.CreateStmt) == "" {
-				return errors.New("sql sink with auto_create requires create_statement")
+			if destination.AutoCreate != nil && *destination.AutoCreate && strings.TrimSpace(destination.CreateStmt) == "" {
+				return errors.New("sql destination with auto_create requires create_statement")
 			}
 		case "otel":
-			if hasBothValues(sink.Endpoint, sink.EndpointEnv) {
-				return errors.New("otel sink cannot set both endpoint and endpoint_env")
+			if hasBothValues(destination.Endpoint, destination.EndpointEnv) {
+				return errors.New("otel destination cannot set both endpoint and endpoint_env")
 			}
-			if len(sink.Headers) > 0 && strings.TrimSpace(sink.HeadersEnv) != "" {
-				return errors.New("otel sink cannot set both headers and headers_env")
+			if len(destination.Headers) > 0 && strings.TrimSpace(destination.HeadersEnv) != "" {
+				return errors.New("otel destination cannot set both headers and headers_env")
 			}
 		default:
-			return fmt.Errorf("unsupported sink type %q", sink.Type)
+			return fmt.Errorf("unsupported destination type %q", destination.Type)
 		}
 	}
 
 	return nil
 }
 
-var allowedFieldsBySinkType = map[string]map[string]bool{
+var allowedFieldsByDestinationType = map[string]map[string]bool{
 	"file": {
 		"path":   true,
 		"format": true,
@@ -347,15 +347,15 @@ var allowedFieldsBySinkType = map[string]map[string]bool{
 	},
 }
 
-func (s SinkConfig) rejectUnknownFields() error {
-	allowed, ok := allowedFieldsBySinkType[s.Type]
+func (s DestinationConfig) rejectUnknownFields() error {
+	allowed, ok := allowedFieldsByDestinationType[s.Type]
 	if !ok {
-		return fmt.Errorf("unsupported sink type %q", s.Type)
+		return fmt.Errorf("unsupported destination type %q", s.Type)
 	}
 
 	set := func(field string, isSet bool) error {
 		if isSet && !allowed[field] {
-			return fmt.Errorf("%s sink does not support field %q", s.Type, field)
+			return fmt.Errorf("%s destination does not support field %q", s.Type, field)
 		}
 		return nil
 	}
@@ -404,44 +404,44 @@ func (s SinkConfig) rejectUnknownFields() error {
 }
 
 func (c *Config) resolveEnv(dotEnv map[string]string) error {
-	for i := range c.Sinks {
-		sink := &c.Sinks[i]
-		switch strings.ToLower(strings.TrimSpace(sink.Type)) {
+	for i := range c.Destinations {
+		destination := &c.Destinations[i]
+		switch strings.ToLower(strings.TrimSpace(destination.Type)) {
 		case "http":
-			value, err := resolveExclusiveEnvString("http url", sink.URL, sink.URLEnv, dotEnv)
+			value, err := resolveExclusiveEnvString("http url", destination.URL, destination.URLEnv, dotEnv)
 			if err != nil {
 				return err
 			}
-			sink.URL = value
-			sink.URLEnv = ""
+			destination.URL = value
+			destination.URLEnv = ""
 
-			headers, err := resolveExclusiveEnvMap("http headers", sink.Headers, sink.HeadersEnv, dotEnv)
+			headers, err := resolveExclusiveEnvMap("http headers", destination.Headers, destination.HeadersEnv, dotEnv)
 			if err != nil {
 				return err
 			}
-			sink.Headers = headers
-			sink.HeadersEnv = ""
+			destination.Headers = headers
+			destination.HeadersEnv = ""
 		case "application_insights":
-			value, err := resolveExclusiveEnvString("application_insights connection string", sink.ConnectionString, sink.ConnectionStringEnv, dotEnv)
+			value, err := resolveExclusiveEnvString("application_insights connection string", destination.ConnectionString, destination.ConnectionStringEnv, dotEnv)
 			if err != nil {
 				return err
 			}
-			sink.ConnectionString = value
-			sink.ConnectionStringEnv = ""
+			destination.ConnectionString = value
+			destination.ConnectionStringEnv = ""
 		case "otel":
-			value, err := resolveExclusiveEnvString("otel endpoint", sink.Endpoint, sink.EndpointEnv, dotEnv)
+			value, err := resolveExclusiveEnvString("otel endpoint", destination.Endpoint, destination.EndpointEnv, dotEnv)
 			if err != nil {
 				return err
 			}
-			sink.Endpoint = value
-			sink.EndpointEnv = ""
+			destination.Endpoint = value
+			destination.EndpointEnv = ""
 
-			headers, err := resolveExclusiveEnvMap("otel headers", sink.Headers, sink.HeadersEnv, dotEnv)
+			headers, err := resolveExclusiveEnvMap("otel headers", destination.Headers, destination.HeadersEnv, dotEnv)
 			if err != nil {
 				return err
 			}
-			sink.Headers = headers
-			sink.HeadersEnv = ""
+			destination.Headers = headers
+			destination.HeadersEnv = ""
 		}
 	}
 	return nil

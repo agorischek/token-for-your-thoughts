@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 
 const defaultApplicationInsightsIngestionEndpoint = "https://dc.services.visualstudio.com/"
 
-type ApplicationInsightsSink struct {
+type ApplicationInsightsDestination struct {
 	client             *http.Client
 	ingestionEndpoint  string
 	instrumentationKey string
@@ -52,11 +52,11 @@ type applicationInsightsTrackResponse struct {
 	} `json:"errors"`
 }
 
-func NewApplicationInsightsSink(cfg config.SinkConfig) (*ApplicationInsightsSink, error) {
-	return newApplicationInsightsSink(cfg, &http.Client{Timeout: 10 * time.Second})
+func NewApplicationInsightsDestination(cfg config.DestinationConfig) (*ApplicationInsightsDestination, error) {
+	return newApplicationInsightsDestination(cfg, &http.Client{Timeout: 10 * time.Second})
 }
 
-func newApplicationInsightsSink(cfg config.SinkConfig, client *http.Client) (*ApplicationInsightsSink, error) {
+func newApplicationInsightsDestination(cfg config.DestinationConfig, client *http.Client) (*ApplicationInsightsDestination, error) {
 	parts, err := parseConnectionString(cfg.ConnectionString)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func newApplicationInsightsSink(cfg config.SinkConfig, client *http.Client) (*Ap
 		endpoint += "/"
 	}
 
-	return &ApplicationInsightsSink{
+	return &ApplicationInsightsDestination{
 		client:             client,
 		ingestionEndpoint:  endpoint,
 		instrumentationKey: ikey,
@@ -87,11 +87,11 @@ func newApplicationInsightsSink(cfg config.SinkConfig, client *http.Client) (*Ap
 	}, nil
 }
 
-func (s *ApplicationInsightsSink) Name() string {
+func (s *ApplicationInsightsDestination) Name() string {
 	return "application_insights"
 }
 
-func (s *ApplicationInsightsSink) Submit(ctx context.Context, item feedback.Item) error {
+func (s *ApplicationInsightsDestination) Submit(ctx context.Context, item feedback.Item) error {
 	properties := map[string]string{
 		"feedback.id":            item.ID,
 		"feedback.provider":      item.Provider,

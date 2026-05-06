@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"context"
@@ -16,16 +16,16 @@ func TestFileSinkWritesEntry(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sink, err := NewFileSink(dir, config.SinkConfig{Type: "file", Path: "FEEDBACK.md"})
+	destination, err := NewFileDestination(dir, config.DestinationConfig{Type: "file", Path: "FEEDBACK.md"})
 	if err != nil {
-		t.Fatalf("new file sink: %v", err)
+		t.Fatalf("new file destination: %v", err)
 	}
 
 	item, err := feedback.New("Claude Code", "Summary and details together", "cli", nil)
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
-	if err := sink.Submit(context.Background(), item); err != nil {
+	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 
@@ -44,16 +44,16 @@ func TestFileSinkWritesJSONEntry(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sink, err := NewFileSink(dir, config.SinkConfig{Type: "file", Path: "FEEDBACK.jsonl", Format: "json"})
+	destination, err := NewFileDestination(dir, config.DestinationConfig{Type: "file", Path: "FEEDBACK.jsonl", Format: "json"})
 	if err != nil {
-		t.Fatalf("new file sink: %v", err)
+		t.Fatalf("new file destination: %v", err)
 	}
 
 	item, err := feedback.New("Claude Code", "JSON output should be machine-friendly.", "cli", map[string]any{"key": "value"})
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
-	if err := sink.Submit(context.Background(), item); err != nil {
+	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 

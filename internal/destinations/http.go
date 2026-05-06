@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-type HTTPSink struct {
+type HTTPDestination struct {
 	client          *http.Client
 	url             string
 	method          string
@@ -21,11 +21,11 @@ type HTTPSink struct {
 	successStatuses map[int]bool
 }
 
-func NewHTTPSink(cfg config.SinkConfig) (*HTTPSink, error) {
-	return newHTTPSink(cfg, &http.Client{Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second})
+func NewHTTPDestination(cfg config.DestinationConfig) (*HTTPDestination, error) {
+	return newHTTPDestination(cfg, &http.Client{Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second})
 }
 
-func newHTTPSink(cfg config.SinkConfig, client *http.Client) (*HTTPSink, error) {
+func newHTTPDestination(cfg config.DestinationConfig, client *http.Client) (*HTTPDestination, error) {
 	headers := map[string]string{}
 	for key, value := range cfg.Headers {
 		headers[key] = value
@@ -36,7 +36,7 @@ func newHTTPSink(cfg config.SinkConfig, client *http.Client) (*HTTPSink, error) 
 		successStatuses[status] = true
 	}
 
-	return &HTTPSink{
+	return &HTTPDestination{
 		client:          client,
 		url:             cfg.URL,
 		method:          cfg.Method,
@@ -45,11 +45,11 @@ func newHTTPSink(cfg config.SinkConfig, client *http.Client) (*HTTPSink, error) 
 	}, nil
 }
 
-func (s *HTTPSink) Name() string {
+func (s *HTTPDestination) Name() string {
 	return "http"
 }
 
-func (s *HTTPSink) Submit(ctx context.Context, item feedback.Item) error {
+func (s *HTTPDestination) Submit(ctx context.Context, item feedback.Item) error {
 	body, err := item.JSON(false)
 	if err != nil {
 		return fmt.Errorf("marshal http payload: %w", err)
@@ -83,12 +83,12 @@ func (s *HTTPSink) Submit(ctx context.Context, item feedback.Item) error {
 
 	message := strings.TrimSpace(string(respBody))
 	if message == "" {
-		return fmt.Errorf("http sink returned %s", resp.Status)
+		return fmt.Errorf("http destination returned %s", resp.Status)
 	}
-	return fmt.Errorf("http sink returned %s: %s", resp.Status, message)
+	return fmt.Errorf("http destination returned %s: %s", resp.Status, message)
 }
 
-func (s *HTTPSink) isSuccessStatus(status int) bool {
+func (s *HTTPDestination) isSuccessStatus(status int) bool {
 	if len(s.successStatuses) == 0 {
 		return status >= 200 && status < 300
 	}

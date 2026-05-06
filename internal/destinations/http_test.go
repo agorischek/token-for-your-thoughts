@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func TestHTTPSinkSubmit(t *testing.T) {
 	}))
 	defer server.Close()
 
-	sink, err := newHTTPSink(config.SinkConfig{
+	destination, err := newHTTPDestination(config.DestinationConfig{
 		Type:            "http",
 		URL:             server.URL,
 		Method:          http.MethodPost,
@@ -40,15 +40,15 @@ func TestHTTPSinkSubmit(t *testing.T) {
 		SuccessStatuses: []int{http.StatusAccepted},
 	}, server.Client())
 	if err != nil {
-		t.Fatalf("new sink: %v", err)
+		t.Fatalf("new destination: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "The HTTP sink should send the full feedback item as JSON.", "cli", map[string]any{"team": "agents"})
+	item, err := feedback.New("Claude Code", "The HTTP destination should send the full feedback item as JSON.", "cli", map[string]any{"team": "agents"})
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
 
-	if err := sink.Submit(context.Background(), item); err != nil {
+	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 
@@ -83,14 +83,14 @@ func TestHTTPSinkDefaultsTo2xx(t *testing.T) {
 	}))
 	defer server.Close()
 
-	sink, err := newHTTPSink(config.SinkConfig{
+	destination, err := newHTTPDestination(config.DestinationConfig{
 		Type:           "http",
 		URL:            server.URL,
 		Method:         http.MethodPost,
 		TimeoutSeconds: 10,
 	}, server.Client())
 	if err != nil {
-		t.Fatalf("new sink: %v", err)
+		t.Fatalf("new destination: %v", err)
 	}
 
 	item, err := feedback.New("Claude Code", "A 204 response should count as success.", "cli", nil)
@@ -98,7 +98,7 @@ func TestHTTPSinkDefaultsTo2xx(t *testing.T) {
 		t.Fatalf("new item: %v", err)
 	}
 
-	if err := sink.Submit(context.Background(), item); err != nil {
+	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 }
@@ -111,26 +111,26 @@ func TestHTTPSinkReturnsResponseBodyOnError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	sink, err := newHTTPSink(config.SinkConfig{
+	destination, err := newHTTPDestination(config.DestinationConfig{
 		Type:           "http",
 		URL:            server.URL,
 		Method:         http.MethodPost,
 		TimeoutSeconds: 10,
 	}, server.Client())
 	if err != nil {
-		t.Fatalf("new sink: %v", err)
+		t.Fatalf("new destination: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "The HTTP sink should surface response bodies on failure.", "cli", nil)
+	item, err := feedback.New("Claude Code", "The HTTP destination should surface response bodies on failure.", "cli", nil)
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
 
-	err = sink.Submit(context.Background(), item)
+	err = destination.Submit(context.Background(), item)
 	if err == nil {
 		t.Fatal("expected submit error")
 	}
-	if got := err.Error(); got == "" || got == "http sink returned 502 Bad Gateway" {
+	if got := err.Error(); got == "" || got == "http destination returned 502 Bad Gateway" {
 		t.Fatalf("expected detailed error, got %q", got)
 	}
 }
@@ -144,17 +144,17 @@ func TestHTTPSinkUsesClientTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	sink, err := NewHTTPSink(config.SinkConfig{
+	destination, err := NewHTTPDestination(config.DestinationConfig{
 		Type:           "http",
 		URL:            server.URL,
 		Method:         http.MethodPost,
 		TimeoutSeconds: 1,
 	})
 	if err != nil {
-		t.Fatalf("new sink: %v", err)
+		t.Fatalf("new destination: %v", err)
 	}
 
-	if sink.client.Timeout != time.Second {
-		t.Fatalf("unexpected client timeout %s", sink.client.Timeout)
+	if destination.client.Timeout != time.Second {
+		t.Fatalf("unexpected client timeout %s", destination.client.Timeout)
 	}
 }

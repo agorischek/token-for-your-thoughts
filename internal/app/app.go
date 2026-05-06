@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/destinations"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 	"github.com/agorischek/token-for-your-thoughts/internal/mcpserver"
-	"github.com/agorischek/token-for-your-thoughts/internal/sinks"
 )
 
 type runtimeConfig struct {
@@ -23,7 +23,7 @@ type runtimeConfig struct {
 	ConfigPath string
 	BaseDir    string
 	RepoRoot   string
-	Manager    *sinks.Manager
+	Manager    *destinations.Manager
 }
 
 func Run(ctx context.Context, version string, args []string, stdout, stderr io.Writer) error {
@@ -96,7 +96,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if _, err := fmt.Fprintf(stdout, "submitted feedback %s\n", item.ID); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(stdout, "successful sinks: %s\n", strings.Join(result.Succeeded, ", ")); err != nil {
+	if _, err := fmt.Fprintf(stdout, "successful destinations: %s\n", strings.Join(result.Succeeded, ", ")); err != nil {
 		return err
 	}
 	if len(result.Failed) > 0 {
@@ -105,7 +105,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 			failed = append(failed, fmt.Sprintf("%s (%s)", name, msg))
 		}
 		sort.Strings(failed)
-		if _, err := fmt.Fprintf(stdout, "failed sinks: %s\n", strings.Join(failed, ", ")); err != nil {
+		if _, err := fmt.Fprintf(stdout, "failed destinations: %s\n", strings.Join(failed, ", ")); err != nil {
 			return err
 		}
 	}
@@ -145,13 +145,13 @@ func loadRuntimeConfig(ctx context.Context, explicitPath string) (*runtimeConfig
 	baseDir := filepath.Dir(resolvedPath)
 	repoRoot, err := gitRoot(baseDir)
 	if err != nil {
-		if needsGitSink(cfg) {
+		if needsGitDestination(cfg) {
 			return nil, err
 		}
 		repoRoot = ""
 	}
 
-	manager, err := sinks.NewManager(ctx, cfg, baseDir, repoRoot)
+	manager, err := destinations.NewManager(ctx, cfg, baseDir, repoRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -169,14 +169,14 @@ func gitRoot(dir string) (string, error) {
 	cmd := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", errors.New("git sink requires running inside a git repository")
+		return "", errors.New("git destination requires running inside a git repository")
 	}
 	return strings.TrimSpace(string(output)), nil
 }
 
-func needsGitSink(cfg config.Config) bool {
-	for _, sink := range cfg.Sinks {
-		if strings.EqualFold(sink.Type, "git") {
+func needsGitDestination(cfg config.Config) bool {
+	for _, destination := range cfg.Destinations {
+		if strings.EqualFold(destination.Type, "git") {
 			return true
 		}
 	}

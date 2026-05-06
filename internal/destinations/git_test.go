@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ func TestGitSinkWritesPerFeedbackFile(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	sink, err := NewGitSink(repoRoot, repoRoot, config.SinkConfig{
+	destination, err := NewGitDestination(repoRoot, repoRoot, config.DestinationConfig{
 		Type:      "git",
 		Directory: ".feedback",
 		Branch:    "feedback",
@@ -23,7 +23,7 @@ func TestGitSinkWritesPerFeedbackFile(t *testing.T) {
 		Push:      boolPtr(false),
 	})
 	if err != nil {
-		t.Fatalf("new git sink: %v", err)
+		t.Fatalf("new git destination: %v", err)
 	}
 
 	item, err := feedback.New("Claude Code", "The CLI hid the real error output.", "cli", nil)
@@ -31,12 +31,12 @@ func TestGitSinkWritesPerFeedbackFile(t *testing.T) {
 		t.Fatalf("new item: %v", err)
 	}
 
-	if filepath.IsAbs(sink.directory) {
+	if filepath.IsAbs(destination.directory) {
 		t.Fatal("expected relative directory")
 	}
 
-	path := filepath.Join(repoRoot, sink.directory, item.ID+".md")
-	if rel, err := filepath.Rel(repoRoot, filepath.Join(repoRoot, filepath.Clean(sink.directory))); err != nil || strings.HasPrefix(rel, "..") {
+	path := filepath.Join(repoRoot, destination.directory, item.ID+".md")
+	if rel, err := filepath.Rel(repoRoot, filepath.Join(repoRoot, filepath.Clean(destination.directory))); err != nil || strings.HasPrefix(rel, "..") {
 		t.Fatalf("directory escaped repo: rel=%q err=%v", rel, err)
 	}
 
@@ -62,7 +62,7 @@ func TestGitSinkWritesJSONFileNameAndContent(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
-	sink, err := NewGitSink(repoRoot, repoRoot, config.SinkConfig{
+	destination, err := NewGitDestination(repoRoot, repoRoot, config.DestinationConfig{
 		Type:      "git",
 		Directory: ".feedback",
 		Format:    "json",
@@ -71,7 +71,7 @@ func TestGitSinkWritesJSONFileNameAndContent(t *testing.T) {
 		Push:      boolPtr(false),
 	})
 	if err != nil {
-		t.Fatalf("new git sink: %v", err)
+		t.Fatalf("new git destination: %v", err)
 	}
 
 	item, err := feedback.New("Claude Code", "JSON file output should use a .json extension.", "cli", map[string]any{"kind": "test"})
@@ -79,7 +79,7 @@ func TestGitSinkWritesJSONFileNameAndContent(t *testing.T) {
 		t.Fatalf("new item: %v", err)
 	}
 
-	path := filepath.Join(repoRoot, sink.directory, item.ID+".json")
+	path := filepath.Join(repoRoot, destination.directory, item.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}

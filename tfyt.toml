@@ -2,7 +2,12 @@
 
 env_file_path = ".env"
 
-[[sinks]]
+[[destinations]]
+type = "file"
+path = "FEEDBACK.md"
+format = "markdown"
+
+[[destinations]]
 type = "otel"
 endpoint_env = "BETTER_STACK_OTEL_ENDPOINT"
 headers_env = "BETTER_STACK_OTEL_HEADERS"

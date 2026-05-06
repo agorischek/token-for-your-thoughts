@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/destinations"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
-	"github.com/agorischek/token-for-your-thoughts/internal/sinks"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -19,11 +19,11 @@ type submitInput struct {
 
 type submitOutput struct {
 	ID        string            `json:"id" jsonschema:"GUID assigned to the feedback"`
-	Succeeded []string          `json:"succeeded" jsonschema:"Sinks that accepted the feedback"`
-	Failed    map[string]string `json:"failed,omitempty" jsonschema:"Sinks that returned an error"`
+	Succeeded []string          `json:"succeeded" jsonschema:"Destinations that accepted the feedback"`
+	Failed    map[string]string `json:"failed,omitempty" jsonschema:"Destinations that returned an error"`
 }
 
-func Serve(ctx context.Context, version string, cfg config.Config, manager *sinks.Manager) error {
+func Serve(ctx context.Context, version string, cfg config.Config, manager *destinations.Manager) error {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "tfyt",
 		Version: version,

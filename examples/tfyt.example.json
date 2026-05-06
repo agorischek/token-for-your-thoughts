@@ -4,7 +4,7 @@
     "tool_name": "submit_feedback",
     "tool_description": "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
   },
-  "sinks": [
+  "destinations": [
     {
       "type": "file",
       "path": "FEEDBACK.md",

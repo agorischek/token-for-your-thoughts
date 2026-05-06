@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-type GitSink struct {
+type GitDestination struct {
 	baseDir       string
 	repoRoot      string
 	branch        string
@@ -25,9 +25,9 @@ type GitSink struct {
 	commitMessage *template.Template
 }
 
-func NewGitSink(baseDir, repoRoot string, cfg config.SinkConfig) (*GitSink, error) {
+func NewGitDestination(baseDir, repoRoot string, cfg config.DestinationConfig) (*GitDestination, error) {
 	if strings.TrimSpace(repoRoot) == "" {
-		return nil, fmt.Errorf("git sink requires a git repository")
+		return nil, fmt.Errorf("git destination requires a git repository")
 	}
 
 	commitTemplate, err := template.New("commit-message").Parse(cfg.CommitMessage)
@@ -35,7 +35,7 @@ func NewGitSink(baseDir, repoRoot string, cfg config.SinkConfig) (*GitSink, erro
 		return nil, fmt.Errorf("parse commit message template: %w", err)
 	}
 
-	return &GitSink{
+	return &GitDestination{
 		baseDir:       baseDir,
 		repoRoot:      repoRoot,
 		branch:        cfg.Branch,
@@ -47,11 +47,11 @@ func NewGitSink(baseDir, repoRoot string, cfg config.SinkConfig) (*GitSink, erro
 	}, nil
 }
 
-func (s *GitSink) Name() string {
+func (s *GitDestination) Name() string {
 	return "git"
 }
 
-func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
+func (s *GitDestination) Submit(ctx context.Context, item feedback.Item) error {
 	remoteURL, err := s.gitOutput(ctx, s.repoRoot, "remote", "get-url", s.remote)
 	if err != nil {
 		return fmt.Errorf("resolve remote %s: %w", s.remote, err)
@@ -78,19 +78,19 @@ func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
 	}
 
 	if filepath.IsAbs(s.directory) {
-		return fmt.Errorf("git sink directory must be relative to the repository root")
+		return fmt.Errorf("git destination directory must be relative to the repository root")
 	}
 
 	directoryPath := filepath.Join(tempDir, filepath.Clean(s.directory))
 	relDirectory, err := filepath.Rel(tempDir, directoryPath)
 	if err != nil {
-		return fmt.Errorf("compute git sink directory: %w", err)
+		return fmt.Errorf("compute git destination directory: %w", err)
 	}
 	if relDirectory == ".." || strings.HasPrefix(relDirectory, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("git sink directory must stay within the repository root")
+		return fmt.Errorf("git destination directory must stay within the repository root")
 	}
 	if err := os.MkdirAll(directoryPath, 0o755); err != nil {
-		return fmt.Errorf("create git sink directory: %w", err)
+		return fmt.Errorf("create git destination directory: %w", err)
 	}
 
 	extension := ".md"
@@ -138,7 +138,7 @@ func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
 	return nil
 }
 
-func (s *GitSink) checkoutBranch(ctx context.Context, tempDir string) error {
+func (s *GitDestination) checkoutBranch(ctx context.Context, tempDir string) error {
 	if err := s.gitRun(ctx, tempDir, "fetch", "origin", s.branch); err == nil {
 		if err := s.gitRun(ctx, tempDir, "checkout", "-b", s.branch, "FETCH_HEAD"); err != nil {
 			return fmt.Errorf("checkout remote branch: %w", err)
@@ -159,7 +159,7 @@ func (s *GitSink) checkoutBranch(ctx context.Context, tempDir string) error {
 	return nil
 }
 
-func (s *GitSink) gitRun(ctx context.Context, dir string, args ...string) error {
+func (s *GitDestination) gitRun(ctx context.Context, dir string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
@@ -169,7 +169,7 @@ func (s *GitSink) gitRun(ctx context.Context, dir string, args ...string) error 
 	return nil
 }
 
-func (s *GitSink) gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
+func (s *GitDestination) gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()

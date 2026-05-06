@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"context"
@@ -27,21 +27,21 @@ func TestApplicationInsightsSinkSubmit(t *testing.T) {
 	}))
 	defer server.Close()
 
-	sink, err := newApplicationInsightsSink(config.SinkConfig{
+	destination, err := newApplicationInsightsDestination(config.DestinationConfig{
 		Type:             "application_insights",
 		ConnectionString: "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=" + server.URL + "/",
 		EventName:        "repo feedback",
 	}, server.Client())
 	if err != nil {
-		t.Fatalf("new sink: %v", err)
+		t.Fatalf("new destination: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "The Application Insights sink should send custom events.", "cli", map[string]any{"team": "agents"})
+	item, err := feedback.New("Claude Code", "The Application Insights destination should send custom events.", "cli", map[string]any{"team": "agents"})
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
 
-	if err := sink.Submit(context.Background(), item); err != nil {
+	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 

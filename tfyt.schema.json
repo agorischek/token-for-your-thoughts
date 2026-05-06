@@ -17,11 +17,11 @@
     "mcp": {
       "$ref": "#/$defs/mcp"
     },
-    "sinks": {
+    "destinations": {
       "type": "array",
-      "description": "If omitted or empty, tfyt defaults to a single markdown file sink writing to FEEDBACK.md.",
+      "description": "If omitted or empty, tfyt defaults to a single markdown file destination writing to FEEDBACK.md.",
       "items": {
-        "$ref": "#/$defs/sink"
+        "$ref": "#/$defs/destination"
       }
     }
   },
@@ -40,28 +40,28 @@
         }
       }
     },
-    "sink": {
+    "destination": {
       "oneOf": [
         {
-          "$ref": "#/$defs/fileSink"
+          "$ref": "#/$defs/fileDestination"
         },
         {
-          "$ref": "#/$defs/gitSink"
+          "$ref": "#/$defs/gitDestination"
         },
         {
-          "$ref": "#/$defs/commandSink"
+          "$ref": "#/$defs/commandDestination"
         },
         {
-          "$ref": "#/$defs/httpSink"
+          "$ref": "#/$defs/httpDestination"
         },
         {
-          "$ref": "#/$defs/applicationInsightsSink"
+          "$ref": "#/$defs/applicationInsightsDestination"
         },
         {
-          "$ref": "#/$defs/sqlSink"
+          "$ref": "#/$defs/sqlDestination"
         },
         {
-          "$ref": "#/$defs/otelSink"
+          "$ref": "#/$defs/otelDestination"
         }
       ]
     },
@@ -78,7 +78,7 @@
         "type": "string"
       }
     },
-    "fileSink": {
+    "fileDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -97,7 +97,7 @@
         "type"
       ]
     },
-    "gitSink": {
+    "gitDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -132,7 +132,7 @@
         "type"
       ]
     },
-    "commandSink": {
+    "commandDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -158,7 +158,7 @@
         "command"
       ]
     },
-    "httpSink": {
+    "httpDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -231,7 +231,7 @@
         }
       ]
     },
-    "applicationInsightsSink": {
+    "applicationInsightsDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -276,7 +276,7 @@
         }
       ]
     },
-    "sqlSink": {
+    "sqlDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -309,7 +309,7 @@
         "insert_statement"
       ]
     },
-    "otelSink": {
+    "otelDestination": {
       "type": "object",
       "additionalProperties": false,
       "properties": {

@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"context"
@@ -17,25 +17,25 @@ import (
 func TestCommandSinkSubmit(t *testing.T) {
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
-	sink, err := NewCommandSink(config.SinkConfig{
+	destination, err := NewCommandDestination(config.DestinationConfig{
 		Type:    "command",
 		Command: os.Args[0],
 		Args:    []string{"-test.run=TestHelperProcessCommandSink", "--", "ok"},
 		Method:  "submit_feedback",
 	})
 	if err != nil {
-		t.Fatalf("new command sink: %v", err)
+		t.Fatalf("new command destination: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "The command sink should deliver JSON-RPC over stdio.", "cli", map[string]any{"tool": "test"})
+	item, err := feedback.New("Claude Code", "The command destination should deliver JSON-RPC over stdio.", "cli", map[string]any{"tool": "test"})
 	if err != nil {
 		t.Fatalf("new item: %v", err)
 	}
 
-	if err := sink.Submit(context.Background(), item); err != nil {
+	if err := destination.Submit(context.Background(), item); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
-	if err := sink.Close(context.Background()); err != nil {
+	if err := destination.Close(context.Background()); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 }
@@ -43,14 +43,14 @@ func TestCommandSinkSubmit(t *testing.T) {
 func TestCommandSinkSubmitJSONRPCError(t *testing.T) {
 	t.Setenv("GO_WANT_HELPER_PROCESS", "1")
 
-	sink, err := NewCommandSink(config.SinkConfig{
+	destination, err := NewCommandDestination(config.DestinationConfig{
 		Type:    "command",
 		Command: os.Args[0],
 		Args:    []string{"-test.run=TestHelperProcessCommandSink", "--", "error"},
 		Method:  "submit_feedback",
 	})
 	if err != nil {
-		t.Fatalf("new command sink: %v", err)
+		t.Fatalf("new command destination: %v", err)
 	}
 
 	item, err := feedback.New("Claude Code", "The helper should reject this request.", "cli", nil)
@@ -58,10 +58,10 @@ func TestCommandSinkSubmitJSONRPCError(t *testing.T) {
 		t.Fatalf("new item: %v", err)
 	}
 
-	if err := sink.Submit(context.Background(), item); err == nil {
+	if err := destination.Submit(context.Background(), item); err == nil {
 		t.Fatal("expected submit error")
 	}
-	if err := sink.Close(context.Background()); err != nil {
+	if err := destination.Close(context.Background()); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 }
@@ -72,14 +72,14 @@ func TestCommandSinkReusesProcess(t *testing.T) {
 	counterFile := filepath.Join(t.TempDir(), "starts.txt")
 	t.Setenv("GO_HELPER_START_COUNT_FILE", counterFile)
 
-	sink, err := NewCommandSink(config.SinkConfig{
+	destination, err := NewCommandDestination(config.DestinationConfig{
 		Type:    "command",
 		Command: os.Args[0],
 		Args:    []string{"-test.run=TestHelperProcessCommandSink", "--", "ok"},
 		Method:  "submit_feedback",
 	})
 	if err != nil {
-		t.Fatalf("new command sink: %v", err)
+		t.Fatalf("new command destination: %v", err)
 	}
 
 	first, err := feedback.New("Claude Code", "First submission should keep the helper alive.", "mcp", nil)
@@ -91,13 +91,13 @@ func TestCommandSinkReusesProcess(t *testing.T) {
 		t.Fatalf("new second item: %v", err)
 	}
 
-	if err := sink.Submit(context.Background(), first); err != nil {
+	if err := destination.Submit(context.Background(), first); err != nil {
 		t.Fatalf("submit first: %v", err)
 	}
-	if err := sink.Submit(context.Background(), second); err != nil {
+	if err := destination.Submit(context.Background(), second); err != nil {
 		t.Fatalf("submit second: %v", err)
 	}
-	if err := sink.Close(context.Background()); err != nil {
+	if err := destination.Close(context.Background()); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 
@@ -157,7 +157,7 @@ func TestHelperProcessCommandSink(t *testing.T) {
 			Result:  json.RawMessage(`{"ok":true}`),
 		}
 		if mode == "error" {
-			response.Error = &jsonRPCError{Code: -32000, Message: "sink rejected feedback"}
+			response.Error = &jsonRPCError{Code: -32000, Message: "destination rejected feedback"}
 			response.Result = nil
 		}
 

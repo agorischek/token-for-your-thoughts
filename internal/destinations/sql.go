@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"context"
@@ -10,16 +10,16 @@ import (
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-type SQLSink struct {
+type SQLDestination struct {
 	db         *sql.DB
 	insertStmt string
 }
 
-func NewSQLSink(_ string, cfg config.SinkConfig) (*SQLSink, error) {
+func NewSQLDestination(_ string, cfg config.DestinationConfig) (*SQLDestination, error) {
 	driver := strings.TrimSpace(cfg.Driver)
 	dsn := strings.TrimSpace(cfg.DSN)
 	if driver == "" || dsn == "" {
-		return nil, fmt.Errorf("sql sink requires driver and dsn")
+		return nil, fmt.Errorf("sql destination requires driver and dsn")
 	}
 
 	db, err := sql.Open(driver, dsn)
@@ -33,21 +33,21 @@ func NewSQLSink(_ string, cfg config.SinkConfig) (*SQLSink, error) {
 		}
 	}
 
-	return &SQLSink{
+	return &SQLDestination{
 		db:         db,
 		insertStmt: cfg.InsertStmt,
 	}, nil
 }
 
-func (s *SQLSink) Name() string {
+func (s *SQLDestination) Name() string {
 	return "sql"
 }
 
-func (s *SQLSink) Close(_ context.Context) error {
+func (s *SQLDestination) Close(_ context.Context) error {
 	return s.db.Close()
 }
 
-func (s *SQLSink) Submit(ctx context.Context, item feedback.Item) error {
+func (s *SQLDestination) Submit(ctx context.Context, item feedback.Item) error {
 	if _, err := s.db.ExecContext(ctx, s.insertStmt,
 		item.ID,
 		item.Provider,

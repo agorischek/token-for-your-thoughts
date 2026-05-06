@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"context"
@@ -10,24 +10,24 @@ import (
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-type FileSink struct {
+type FileDestination struct {
 	path   string
 	format string
 }
 
-func NewFileSink(baseDir string, cfg config.SinkConfig) (*FileSink, error) {
+func NewFileDestination(baseDir string, cfg config.DestinationConfig) (*FileDestination, error) {
 	path := cfg.Path
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(baseDir, path)
 	}
-	return &FileSink{path: path, format: cfg.Format}, nil
+	return &FileDestination{path: path, format: cfg.Format}, nil
 }
 
-func (s *FileSink) Name() string {
+func (s *FileDestination) Name() string {
 	return "file"
 }
 
-func (s *FileSink) Submit(_ context.Context, item feedback.Item) error {
+func (s *FileDestination) Submit(_ context.Context, item feedback.Item) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}

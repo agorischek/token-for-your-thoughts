@@ -1,4 +1,4 @@
-package sinks
+package destinations
 
 import (
 	"bufio"
@@ -16,7 +16,7 @@ import (
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-type CommandSink struct {
+type CommandDestination struct {
 	command string
 	args    []string
 	method  string
@@ -50,38 +50,38 @@ type jsonRPCError struct {
 	Message string `json:"message"`
 }
 
-func NewCommandSink(cfg config.SinkConfig) (*CommandSink, error) {
+func NewCommandDestination(cfg config.DestinationConfig) (*CommandDestination, error) {
 	if strings.TrimSpace(cfg.Command) == "" {
-		return nil, fmt.Errorf("command sink requires command")
+		return nil, fmt.Errorf("command destination requires command")
 	}
 	if strings.TrimSpace(cfg.Method) == "" {
-		return nil, fmt.Errorf("command sink requires method")
+		return nil, fmt.Errorf("command destination requires method")
 	}
 
-	sink := &CommandSink{
+	destination := &CommandDestination{
 		command:    cfg.Command,
 		args:       append([]string(nil), cfg.Args...),
 		method:     cfg.Method,
 		waitResult: make(chan error, 1),
 	}
 
-	if err := sink.start(); err != nil {
+	if err := destination.start(); err != nil {
 		return nil, err
 	}
 
-	return sink, nil
+	return destination, nil
 }
 
-func (s *CommandSink) Name() string {
+func (s *CommandDestination) Name() string {
 	return "command"
 }
 
-func (s *CommandSink) Submit(ctx context.Context, item feedback.Item) error {
+func (s *CommandDestination) Submit(ctx context.Context, item feedback.Item) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.closed {
-		return errors.New("command sink is closed")
+		return errors.New("command destination is closed")
 	}
 	if err := s.checkExited(); err != nil {
 		return err
@@ -115,7 +115,7 @@ func (s *CommandSink) Submit(ctx context.Context, item feedback.Item) error {
 	return nil
 }
 
-func (s *CommandSink) Close(ctx context.Context) error {
+func (s *CommandDestination) Close(ctx context.Context) error {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
@@ -137,7 +137,7 @@ func (s *CommandSink) Close(ctx context.Context) error {
 	select {
 	case err := <-waitResult:
 		if err != nil {
-			return fmt.Errorf("command sink process failed: %w", err)
+			return fmt.Errorf("command destination process failed: %w", err)
 		}
 		return nil
 	case <-ctx.Done():
@@ -146,13 +146,13 @@ func (s *CommandSink) Close(ctx context.Context) error {
 		}
 		err := <-waitResult
 		if err != nil {
-			return errors.Join(ctx.Err(), fmt.Errorf("command sink process failed: %w", err))
+			return errors.Join(ctx.Err(), fmt.Errorf("command destination process failed: %w", err))
 		}
 		return ctx.Err()
 	}
 }
 
-func (s *CommandSink) start() error {
+func (s *CommandDestination) start() error {
 	cmd := exec.Command(s.command, s.args...)
 
 	stdin, err := cmd.StdinPipe()
@@ -169,7 +169,7 @@ func (s *CommandSink) start() error {
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start command sink process: %w", err)
+		return fmt.Errorf("start command destination process: %w", err)
 	}
 
 	go func() {
@@ -185,19 +185,19 @@ func (s *CommandSink) start() error {
 	return nil
 }
 
-func (s *CommandSink) checkExited() error {
+func (s *CommandDestination) checkExited() error {
 	select {
 	case err := <-s.waitResult:
 		if err != nil {
-			return s.wrapProcessError("command sink process failed", err)
+			return s.wrapProcessError("command destination process failed", err)
 		}
-		return errors.New("command sink process exited unexpectedly")
+		return errors.New("command destination process exited unexpectedly")
 	default:
 		return nil
 	}
 }
 
-func (s *CommandSink) wrapProcessError(prefix string, err error) error {
+func (s *CommandDestination) wrapProcessError(prefix string, err error) error {
 	stderr := strings.TrimSpace(s.stderr.String())
 	if stderr != "" {
 		return fmt.Errorf("%s: %w: %s", prefix, err, stderr)
