@@ -1,4 +1,5 @@
 {
+  "$schema": "./tfyt.schema.json",
   "mcp": {
     "tool_name": "submit_feedback",
     "tool_description": "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
@@ -22,6 +23,13 @@
       "command": "/usr/local/bin/feedback-bridge",
       "args": ["--stdio"],
       "method": "submit_feedback"
+    },
+    {
+      "type": "http",
+      "url_env": "TFYT_HTTP_URL",
+      "headers_env": "TFYT_HTTP_HEADERS",
+      "timeout_seconds": 10,
+      "success_statuses": [202]
     },
     {
       "type": "application_insights",

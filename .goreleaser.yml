@@ -23,6 +23,14 @@ builds:
 archives:
   - id: default
     formats: [tar.gz]
+    files:
+      - README.md
+      - LICENSE*
+      - tfyt.schema.json
+      - src: examples/tfyt.example.json
+        dst: tfyt.example.json
+      - src: examples/tfyt.example.toml
+        dst: tfyt.example.toml
     format_overrides:
       - goos: windows
         formats: [zip]

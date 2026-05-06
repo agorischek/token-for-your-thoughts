@@ -1,10 +1,8 @@
-# 🤖🗳️ Token For Your Thoughts
+# Token For Your Thoughts
 
-Are your coding agents dealing with unreliable tools, conflicting instructions, and outdated documentation? Would you know it if they were?
+Are your coding agents dealing with unreliable tools, conflicting instructions, and outdated documentation? Would you know it if they were? _What if they could tell you?_
 
-__What if they could tell you?__
-
-Token For Your Thoughts (`tfyt`) is a utility for agents to provide feedback on tools, skills, and repository experience so you can improve them. It can be used both via CLI and via MCP. Feedback can be sent to a file, an OpenTelemetry endpoint, or any other process.
+Token For Your Thoughts (`tfyt`) is a utility for agents to provide feedback on tools, skills, and repository experience so you can improve them. It can be used both via CLI and via MCP. Feedback can be sent to a file, an HTTP webhook, an OpenTelemetry endpoint, or any other process.
 
 ## Setup
 
@@ -45,9 +43,13 @@ tfyt version
 
 ## Configuration
 
-`tfyt` looks for `.tfyt.json` in the current directory and then walks up parent directories until it finds one. You can also pass `--config /path/to/.tfyt.json`.
+`tfyt` looks for `tfyt.toml` first and then `tfyt.json` in the current directory, walking up parent directories until it finds one. You can also pass `--config /path/to/tfyt.toml` or `--config /path/to/tfyt.json`.
 
-If a `.env` file exists in the same directory as the resolved `.tfyt.json`, `tfyt` loads it automatically before resolving any `*_env` config fields. Existing process environment variables win over values from `.env`.
+If a `.env` file exists in the same directory as the resolved config file, `tfyt` loads it automatically before resolving any `*_env` config fields. Existing process environment variables win over values from `.env`.
+
+A JSON Schema for the config lives at [tfyt.schema.json](/Users/umeboshi/Git/token-for-your-thoughts/tfyt.schema.json) and is included in GitHub release archives together with the example configs. The JSON example uses a top-level `$schema` property, and the TOML example uses Taplo's `#:schema` header directive so editors such as Even Better TOML can pick up the schema automatically.
+
+At startup, `tfyt` also validates the loaded config against that schema before applying runtime defaults.
 
 If `sinks` is omitted or empty, `tfyt` defaults to a single file sink that appends Markdown feedback to `FEEDBACK.md`.
 
@@ -108,6 +110,7 @@ Example:
 
 - Spawns a configured subprocess.
 - Sends one JSON-RPC 2.0 request over stdin and reads one response from stdout.
+- When `tfyt` runs as an MCP server, the subprocess stays alive for the lifetime of the server and is reused across submissions.
 - The default method name is `submit_feedback`, but you can override it with `method`.
 - The request `params` payload is the full feedback item: `id`, `provider`, `feedback`, `source`, `created_at`, and optional `metadata`.
 - Example:
