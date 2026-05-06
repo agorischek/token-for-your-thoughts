@@ -23,6 +23,7 @@ type CommandDestination struct {
 
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
+	stdout  io.ReadCloser
 	decoder *json.Decoder
 	stderr  bytes.Buffer
 
@@ -101,7 +102,7 @@ func (s *CommandDestination) Submit(ctx context.Context, item feedback.Item) err
 		return fmt.Errorf("write json-rpc request: %w", err)
 	}
 
-	response, err := readJSONRPCResponse(ctx, s.decoder)
+	response, err := readJSONRPCResponse(ctx, s.decoder, s.stdout)
 	if err != nil {
 		return s.wrapProcessError("read json-rpc response", err)
 	}
@@ -185,6 +186,7 @@ func (s *CommandDestination) start() error {
 
 	s.cmd = cmd
 	s.stdin = stdin
+	s.stdout = stdout
 	s.decoder = json.NewDecoder(bufio.NewReader(stdout))
 	return nil
 }
@@ -214,7 +216,7 @@ func writeJSONRPCRequest(w io.Writer, request jsonRPCRequest) error {
 	return encoder.Encode(request)
 }
 
-func readJSONRPCResponse(ctx context.Context, decoder *json.Decoder) (jsonRPCResponse, error) {
+func readJSONRPCResponse(ctx context.Context, decoder *json.Decoder, stdout io.Closer) (jsonRPCResponse, error) {
 	type result struct {
 		response jsonRPCResponse
 		err      error
@@ -234,6 +236,9 @@ func readJSONRPCResponse(ctx context.Context, decoder *json.Decoder) (jsonRPCRes
 		}
 		return result.response, nil
 	case <-ctx.Done():
+		// Close stdout to unblock the decoder goroutine.
+		_ = stdout.Close()
+		<-done
 		return jsonRPCResponse{}, ctx.Err()
 	}
 }
