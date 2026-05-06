@@ -200,6 +200,14 @@ type = "file"
 path = "FEEDBACK.md"
 format = "markdown"
 
+# GitHub Discussions destination — creates one discussion per feedback item.
+# [[destinations]]
+# type = "github_discussions"
+# repository = "octo/example"
+# category = "feedback"
+# token_env = "GITHUB_TOKEN"
+# title_template = "Feedback {{ .ID }} from {{ .Provider }}"
+#
 # Git destination — commits feedback to a branch and pushes.
 # [[destinations]]
 # type = "git"
