@@ -161,6 +161,9 @@ func TestParseMetadataReturnsMap(t *testing.T) {
 }
 
 func TestRunUpdateAlreadyUpToDate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network test in short mode")
+	}
 	t.Parallel()
 
 	var stdout bytes.Buffer
@@ -174,6 +177,9 @@ func TestRunUpdateAlreadyUpToDate(t *testing.T) {
 }
 
 func TestRunUpdateDevVersionFindsRelease(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping network test in short mode")
+	}
 	t.Parallel()
 
 	var stdout bytes.Buffer
