@@ -7,16 +7,22 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+
+	selfupdate "github.com/creativeprojects/go-selfupdate"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
 	"github.com/agorischek/token-for-your-thoughts/internal/destinations"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 	"github.com/agorischek/token-for-your-thoughts/internal/mcpserver"
 )
+
+const repoSlug = "agorischek/token-for-your-thoughts"
 
 type runtimeConfig struct {
 	Config     config.Config
@@ -43,6 +49,8 @@ func Run(ctx context.Context, version string, args []string, stdout, stderr io.W
 		return runSubmit(ctx, args[1:], stdout, stderr)
 	case "serve-mcp":
 		return runServeMCP(ctx, version, args[1:], stderr)
+	case "update":
+		return runUpdate(ctx, version, stdout)
 	default:
 		printHelp(stderr)
 		return fmt.Errorf("unknown command %q", args[0])
@@ -133,6 +141,44 @@ func runServeMCP(ctx context.Context, version string, args []string, stderr io.W
 	return mcpserver.Serve(ctx, version, runtime.Config, runtime.Manager)
 }
 
+func runUpdate(ctx context.Context, version string, stdout io.Writer) error {
+	source, err := selfupdate.NewGitHubSource(selfupdate.GitHubConfig{
+		APIToken: os.Getenv("GITHUB_TOKEN"),
+	})
+	if err != nil {
+		return fmt.Errorf("create update source: %w", err)
+	}
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{Source: source})
+	if err != nil {
+		return fmt.Errorf("create updater: %w", err)
+	}
+
+	latest, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug(repoSlug))
+	if err != nil {
+		return fmt.Errorf("detect latest version: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	if latest.LessOrEqual(version) {
+		fmt.Fprintf(stdout, "already up to date (%s)\n", version)
+		return nil
+	}
+
+	exe, err := selfupdate.ExecutablePath()
+	if err != nil {
+		return fmt.Errorf("locate executable: %w", err)
+	}
+
+	if err := updater.UpdateTo(ctx, latest, exe); err != nil {
+		return fmt.Errorf("apply update: %w", err)
+	}
+
+	fmt.Fprintf(stdout, "updated from %s to %s\n", version, latest.Version())
+	return nil
+}
+
 func loadRuntimeConfig(ctx context.Context, explicitPath string) (*runtimeConfig, error) {
 	cfg, resolvedPath, err := config.Load(explicitPath, ".")
 	if err != nil {
@@ -198,11 +244,13 @@ func printHelp(w io.Writer) {
 Usage:
   tfyt submit --provider "Claude Code" --feedback "..." [flags]
   tfyt serve-mcp [flags]
+  tfyt update
   tfyt version
 
 Commands:
   submit      Submit feedback directly from the CLI
   serve-mcp   Serve the MCP submit_feedback tool over stdio
+  update      Update tfyt to the latest release
   version     Print the build version
 
 Submit flags:

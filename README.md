@@ -45,6 +45,19 @@ Print the version:
 tfyt version
 ```
 
+Update to the latest release:
+
+```bash
+tfyt update
+```
+
+Set `GITHUB_TOKEN` for authenticated GitHub API access (avoids rate limits):
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+tfyt update
+```
+
 ## Configuration
 
 `tfyt` looks for `tfyt.toml` first and then `tfyt.json` in the current directory, walking up parent directories until it finds one. You can also pass `--config /path/to/tfyt.toml` or `--config /path/to/tfyt.json`.

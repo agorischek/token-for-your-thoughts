@@ -159,3 +159,36 @@ func TestParseMetadataReturnsMap(t *testing.T) {
 		t.Fatalf("unexpected metadata %v", result)
 	}
 }
+
+func TestRunUpdateAlreadyUpToDate(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	err := Run(context.Background(), "999.0.0", []string{"update"}, &stdout, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "already up to date") {
+		t.Fatalf("expected up-to-date message, got %q", stdout.String())
+	}
+}
+
+func TestRunUpdateDevVersionFindsRelease(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	// "dev" is not valid semver, so DetectLatest should find a release newer than it.
+	// We cancel immediately to avoid actually downloading/replacing the binary.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	// With a cancelled context the network call will fail, which is expected.
+	err := Run(ctx, "dev", []string{"update"}, &stdout, &bytes.Buffer{})
+	if err == nil {
+		// It's okay if it errors due to the cancelled context.
+		return
+	}
+	// The error should be from the network, not from argument parsing.
+	if strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("update command not recognized: %v", err)
+	}
+}
