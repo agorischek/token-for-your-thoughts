@@ -317,7 +317,7 @@ func TestLoadUsesDefaultGitHubTokenEnvWhenUnset(t *testing.T) {
 }
 
 func TestLoadRejectsMissingGitHubDiscussionsToken(t *testing.T) {
-	t.Parallel()
+	t.Setenv("GITHUB_TOKEN", "")
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, DefaultJSONFileName)
