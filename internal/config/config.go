@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	DefaultTOMLFileName                 = "tfyt.toml"
-	DefaultJSONFileName                 = "tfyt.json"
+	DefaultTOMLFileName                 = ".tfyt.toml"
+	DefaultJSONFileName                 = ".tfyt.json"
 	defaultMCPToolName                  = "submit_feedback"
 	defaultMCPDescription               = "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
 	defaultFeedbackPath                 = "FEEDBACK.md"

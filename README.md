@@ -60,7 +60,7 @@ tfyt update
 
 ## Configuration
 
-`tfyt` looks for `tfyt.toml` first and then `tfyt.json` in the current directory, walking up parent directories until it finds one. You can also pass `--config /path/to/tfyt.toml` or `--config /path/to/tfyt.json`.
+`tfyt` looks for `.tfyt.toml` first and then `.tfyt.json` in the current directory, walking up parent directories until it finds one. You can also pass `--config /path/to/.tfyt.toml` or `--config /path/to/.tfyt.json`.
 
 If you set `env_file_path`, `tfyt` loads that env file before resolving any `*_env` config fields. Relative paths are resolved relative to the config file. Existing process environment variables win over values from the env file.
 

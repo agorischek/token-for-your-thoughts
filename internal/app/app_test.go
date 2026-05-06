@@ -66,7 +66,7 @@ func TestRunSubmitRequiresProviderAndFeedback(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "tfyt.json")
+	cfgPath := filepath.Join(dir, ".tfyt.json")
 	if err := os.WriteFile(cfgPath, []byte(`{"destinations":[{"type":"file"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestRunSubmitWritesFeedback(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "tfyt.json")
+	cfgPath := filepath.Join(dir, ".tfyt.json")
 	if err := os.WriteFile(cfgPath, []byte(`{"destinations":[{"type":"file"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestRunSubmitRejectsPositionalArgs(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "tfyt.json")
+	cfgPath := filepath.Join(dir, ".tfyt.json")
 	if err := os.WriteFile(cfgPath, []byte(`{"destinations":[{"type":"file"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
