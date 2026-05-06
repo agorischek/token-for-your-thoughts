@@ -143,10 +143,10 @@ func (c *Config) applyDefaults() {
 	for i := range c.Destinations {
 		destination := &c.Destinations[i]
 		destination.Type = strings.ToLower(strings.TrimSpace(destination.Type))
-		destination.Format = normalizeFormat(destination.Format)
 
 		switch destination.Type {
 		case "file":
+			destination.Format = normalizeFormat(destination.Format)
 			if strings.TrimSpace(destination.Path) == "" {
 				if destination.Format == "json" {
 					destination.Path = defaultFeedbackJSONPath
@@ -155,6 +155,7 @@ func (c *Config) applyDefaults() {
 				}
 			}
 		case "git":
+			destination.Format = normalizeFormat(destination.Format)
 			if strings.TrimSpace(destination.Directory) == "" {
 				if strings.TrimSpace(destination.Path) != "" {
 					destination.Directory = destination.Path
@@ -366,7 +367,7 @@ func (s DestinationConfig) rejectUnknownFields() error {
 	}{
 		{"path", strings.TrimSpace(s.Path) != ""},
 		{"directory", strings.TrimSpace(s.Directory) != ""},
-		{"format", strings.TrimSpace(s.Format) != "" && s.Format != "markdown"},
+		{"format", strings.TrimSpace(s.Format) != ""},
 		{"url", strings.TrimSpace(s.URL) != ""},
 		{"url_env", strings.TrimSpace(s.URLEnv) != ""},
 		{"command", strings.TrimSpace(s.Command) != ""},
