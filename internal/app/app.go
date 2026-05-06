@@ -52,6 +52,8 @@ func Run(ctx context.Context, version string, args []string, stdout, stderr io.W
 		return runServeMCP(ctx, version, args[1:], stderr)
 	case "update":
 		return runUpdate(ctx, version, stdout)
+	case "init":
+		return runInit(stdout)
 	default:
 		printHelp(stderr)
 		return fmt.Errorf("unknown command %q", args[0])
@@ -184,6 +186,77 @@ func runUpdate(ctx context.Context, version string, stdout io.Writer) error {
 	return nil
 }
 
+const initTemplate = `# tfyt configuration
+# See https://github.com/agorischek/token-for-your-thoughts for full documentation.
+
+# Uncomment to customize the MCP tool name and description:
+# [mcp]
+# tool_name = "submit_feedback"
+# tool_description = "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
+
+# File destination — writes feedback to a local file.
+[[destinations]]
+type = "file"
+path = "FEEDBACK.md"
+format = "markdown"
+
+# Git destination — commits feedback to a branch and pushes.
+# [[destinations]]
+# type = "git"
+# branch = "feedback"
+# remote = "origin"
+# directory = ".feedback"
+# format = "markdown"
+# commit_message = "Add feedback entry {{ .ID }}"
+
+# HTTP destination — posts feedback to a webhook URL.
+# [[destinations]]
+# type = "http"
+# url_env = "TFYT_HTTP_URL"
+# headers_env = "TFYT_HTTP_HEADERS"
+# timeout_seconds = 10
+# success_statuses = [200]
+
+# OpenTelemetry destination — sends feedback as log records.
+# [[destinations]]
+# type = "otel"
+# endpoint_env = "OTEL_ENDPOINT"
+# headers_env = "OTEL_HEADERS"
+# service_name = "tfyt"
+
+# Command destination — pipes feedback over JSON-RPC to a subprocess.
+# [[destinations]]
+# type = "command"
+# command = "/usr/local/bin/feedback-bridge"
+# args = ["--stdio"]
+# method = "submit_feedback"
+
+# SQL destination — inserts feedback into a database table.
+# [[destinations]]
+# type = "sql"
+# driver = "postgres"
+# dsn = "postgres://user:pass@localhost:5432/app?sslmode=disable"
+# insert_statement = "INSERT INTO feedback (id, provider, feedback, source, created_at, metadata_json) VALUES ($1, $2, $3, $4, $5, $6)"
+
+# Application Insights destination — sends feedback as a custom event.
+# [[destinations]]
+# type = "application_insights"
+# connection_string_env = "APPINSIGHTS_CONNECTION_STRING"
+# event_name = "tfyt feedback"
+`
+
+func runInit(stdout io.Writer) error {
+	path := ".tfyt.toml"
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("%s already exists", path)
+	}
+	if err := os.WriteFile(path, []byte(initTemplate), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "created %s\n", path)
+	return nil
+}
+
 func loadRuntimeConfig(ctx context.Context, explicitPath string) (*runtimeConfig, error) {
 	cfg, resolvedPath, err := config.Load(explicitPath, ".")
 	if err != nil {
@@ -247,12 +320,14 @@ func printHelp(w io.Writer) {
 	fmt.Fprint(w, `tfyt collects agent feedback for a repository.
 
 Usage:
+  tfyt init
   tfyt submit --provider "Claude Code" --feedback "..." [flags]
   tfyt serve-mcp [flags]
   tfyt update
   tfyt version
 
 Commands:
+  init        Create a .tfyt.toml config file in the current directory
   submit      Submit feedback directly from the CLI
   serve-mcp   Serve the MCP submit_feedback tool over stdio
   update      Update tfyt to the latest release

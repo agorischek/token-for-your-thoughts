@@ -160,6 +160,50 @@ func TestParseMetadataReturnsMap(t *testing.T) {
 	}
 }
 
+func TestRunInitCreatesFile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), "test", []string{"init"}, &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "created .tfyt.toml") {
+		t.Fatalf("expected confirmation, got %q", stdout.String())
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".tfyt.toml"))
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	if !strings.Contains(string(data), "[[destinations]]") {
+		t.Fatalf("expected destinations in template, got %q", string(data))
+	}
+}
+
+func TestRunInitRefusesOverwrite(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	os.WriteFile(".tfyt.toml", []byte("existing"), 0o644)
+
+	err := Run(context.Background(), "test", []string{"init"}, &bytes.Buffer{}, &bytes.Buffer{})
+	if err == nil {
+		t.Fatal("expected error when file exists")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("expected 'already exists' error, got %q", err.Error())
+	}
+}
+
 func TestRunUpdateAlreadyUpToDate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network test in short mode")
