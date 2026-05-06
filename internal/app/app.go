@@ -59,7 +59,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	var source string
 	var metadataRaw string
 
-	fs.StringVar(&configPath, "config", "", "path to a .tfyt.json file")
+	fs.StringVar(&configPath, "config", "", "path to a tfyt.toml or tfyt.json file")
 	fs.StringVar(&provider, "provider", "", "feedback provider, for example Claude Code")
 	fs.StringVar(&feedbackText, "feedback", "", "feedback text")
 	fs.StringVar(&source, "source", "cli", "origin of the submission")
@@ -118,7 +118,7 @@ func runServeMCP(ctx context.Context, version string, args []string, stderr io.W
 	fs.SetOutput(stderr)
 
 	var configPath string
-	fs.StringVar(&configPath, "config", "", "path to a .tfyt.json file")
+	fs.StringVar(&configPath, "config", "", "path to a tfyt.toml or tfyt.json file")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -213,10 +213,10 @@ Submit flags:
   --feedback    Feedback text (required)
   --source      Origin of the submission (default: cli)
   --metadata    Optional JSON object with extra metadata
-  --config      Path to a .tfyt.json file
+  --config      Path to a tfyt.toml or tfyt.json file
 
 Config:
-  tfyt loads .tfyt.json JSON from the current directory or the
-  nearest parent directory unless --config is provided.
+  tfyt loads tfyt.toml first, then tfyt.json, from the current
+  directory or the nearest parent directory unless --config is provided.
 `)
 }

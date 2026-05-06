@@ -1,0 +1,357 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agorischek/token-for-your-thoughts/releases/latest/download/tfyt.schema.json",
+  "title": "Token For Your Thoughts Config",
+  "description": "Configuration for tfyt. This schema defines the JSON form directly; the TOML form uses the same field names and structure.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional in-file schema association for JSON editors."
+    },
+    "mcp": {
+      "$ref": "#/$defs/mcp"
+    },
+    "sinks": {
+      "type": "array",
+      "description": "If omitted or empty, tfyt defaults to a single markdown file sink writing to FEEDBACK.md.",
+      "items": {
+        "$ref": "#/$defs/sink"
+      }
+    }
+  },
+  "$defs": {
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tool_name": {
+          "type": "string",
+          "description": "Override the MCP tool name. Defaults to submit_feedback."
+        },
+        "tool_description": {
+          "type": "string",
+          "description": "Override the MCP tool description."
+        }
+      }
+    },
+    "sink": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/fileSink"
+        },
+        {
+          "$ref": "#/$defs/gitSink"
+        },
+        {
+          "$ref": "#/$defs/commandSink"
+        },
+        {
+          "$ref": "#/$defs/httpSink"
+        },
+        {
+          "$ref": "#/$defs/applicationInsightsSink"
+        },
+        {
+          "$ref": "#/$defs/sqlSink"
+        },
+        {
+          "$ref": "#/$defs/otelSink"
+        }
+      ]
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "markdown",
+        "json"
+      ]
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "fileSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "file"
+        },
+        "path": {
+          "type": "string",
+          "description": "Output file path. Defaults to FEEDBACK.md for markdown or feedback.jsonl for json."
+        },
+        "format": {
+          "$ref": "#/$defs/format"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "gitSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "git"
+        },
+        "path": {
+          "type": "string",
+          "description": "Backward-compatible alias for directory."
+        },
+        "directory": {
+          "type": "string",
+          "description": "Directory on the feedback branch that receives one file per feedback item."
+        },
+        "format": {
+          "$ref": "#/$defs/format"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "remote": {
+          "type": "string"
+        },
+        "push": {
+          "type": "boolean"
+        },
+        "commit_message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "commandSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "command"
+        },
+        "command": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "method": {
+          "type": "string",
+          "description": "JSON-RPC method name. Defaults to submit_feedback."
+        }
+      },
+      "required": [
+        "type",
+        "command"
+      ]
+    },
+    "httpSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "http"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "url_env": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method. Defaults to POST."
+        },
+        "headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "headers_env": {
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "success_statuses": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599
+          }
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "required": [
+                "url"
+              ]
+            },
+            {
+              "required": [
+                "url_env"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "url",
+              "url_env"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "headers",
+              "headers_env"
+            ]
+          }
+        }
+      ]
+    },
+    "applicationInsightsSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "application_insights"
+        },
+        "connection_string": {
+          "type": "string"
+        },
+        "connection_string_env": {
+          "type": "string"
+        },
+        "event_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "required": [
+                "connection_string"
+              ]
+            },
+            {
+              "required": [
+                "connection_string_env"
+              ]
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "connection_string",
+              "connection_string_env"
+            ]
+          }
+        }
+      ]
+    },
+    "sqlSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "sql"
+        },
+        "driver": {
+          "type": "string"
+        },
+        "dsn": {
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "auto_create": {
+          "type": "boolean"
+        },
+        "create_statement": {
+          "type": "string"
+        },
+        "insert_statement": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "driver",
+        "dsn",
+        "insert_statement"
+      ]
+    },
+    "otelSink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "otel"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "endpoint_env": {
+          "type": "string"
+        },
+        "headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "headers_env": {
+          "type": "string"
+        },
+        "insecure": {
+          "type": "boolean"
+        },
+        "service_name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "endpoint",
+              "endpoint_env"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "headers",
+              "headers_env"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

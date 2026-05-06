@@ -9,11 +9,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	tfytassets "github.com/agorischek/token-for-your-thoughts"
 	"github.com/joho/godotenv"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 const (
-	DefaultFileName                     = ".tfyt.json"
+	DefaultTOMLFileName                 = "tfyt.toml"
+	DefaultJSONFileName                 = "tfyt.json"
 	defaultMCPToolName                  = "submit_feedback"
 	defaultMCPDescription               = "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
 	defaultFeedbackPath                 = "FEEDBACK.md"
@@ -31,13 +35,14 @@ const (
 )
 
 type Config struct {
-	MCP   MCPConfig    `json:"mcp"`
-	Sinks []SinkConfig `json:"sinks"`
+	Schema string       `json:"$schema,omitempty" toml:"-"`
+	MCP    MCPConfig    `json:"mcp,omitempty" toml:"mcp"`
+	Sinks  []SinkConfig `json:"sinks,omitempty" toml:"sinks"`
 }
 
 type MCPConfig struct {
-	ToolName        string `json:"tool_name"`
-	ToolDescription string `json:"tool_description"`
+	ToolName        string `json:"tool_name" toml:"tool_name"`
+	ToolDescription string `json:"tool_description" toml:"tool_description"`
 }
 
 type SinkConfig struct {
@@ -91,10 +96,11 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 	}
 
 	var cfg Config
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&cfg); err != nil {
-		return Config{}, "", fmt.Errorf("decode config %s: %w", path, err)
+	if err := decodeConfig(path, data, &cfg); err != nil {
+		return Config{}, "", err
+	}
+	if err := validateAgainstSchema(path, cfg); err != nil {
+		return Config{}, "", err
 	}
 
 	if err := cfg.resolveEnv(dotEnv); err != nil {
@@ -512,17 +518,70 @@ func locate(explicitPath, startDir string) (string, error) {
 	}
 
 	for {
-		candidate := filepath.Join(current, DefaultFileName)
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
+		for _, name := range []string{DefaultTOMLFileName, DefaultJSONFileName} {
+			candidate := filepath.Join(current, name)
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate, nil
+			}
 		}
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", fmt.Errorf("could not find %s in %s or its parents", DefaultFileName, startDir)
+			return "", fmt.Errorf("could not find %s or %s in %s or its parents", DefaultTOMLFileName, DefaultJSONFileName, startDir)
 		}
 		current = parent
 	}
+}
+
+func decodeConfig(path string, data []byte, cfg *Config) error {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".toml":
+		decoder := toml.NewDecoder(bytes.NewReader(data))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(cfg); err != nil {
+			return fmt.Errorf("decode config %s: %w", path, err)
+		}
+		return nil
+	case ".json":
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(cfg); err != nil {
+			return fmt.Errorf("decode config %s: %w", path, err)
+		}
+		return nil
+	default:
+		jsonDecoder := json.NewDecoder(bytes.NewReader(data))
+		jsonDecoder.DisallowUnknownFields()
+		if err := jsonDecoder.Decode(cfg); err == nil {
+			return nil
+		}
+
+		tomlDecoder := toml.NewDecoder(bytes.NewReader(data))
+		tomlDecoder.DisallowUnknownFields()
+		if err := tomlDecoder.Decode(cfg); err == nil {
+			return nil
+		}
+		return fmt.Errorf("decode config %s: unsupported config format", path)
+	}
+}
+
+func validateAgainstSchema(path string, cfg Config) error {
+	schemaLoader := gojsonschema.NewBytesLoader(tfytassets.ConfigSchema())
+	documentLoader := gojsonschema.NewGoLoader(cfg)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("validate config schema %s: %w", path, err)
+	}
+	if result.Valid() {
+		return nil
+	}
+
+	messages := make([]string, 0, len(result.Errors()))
+	for _, issue := range result.Errors() {
+		messages = append(messages, issue.String())
+	}
+	return fmt.Errorf("config %s does not match tfyt.schema.json: %s", path, strings.Join(messages, "; "))
 }
 
 func loadDotEnv(dir string) (map[string]string, error) {

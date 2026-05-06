@@ -10,7 +10,7 @@ func TestLoadAppliesDefaults(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"file"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -34,11 +34,62 @@ func TestLoadAppliesDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptsJSONSchemaProperty(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"$schema":"./tfyt.schema.json","sinks":[{"type":"file"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Schema != "./tfyt.schema.json" {
+		t.Fatalf("unexpected schema %q", cfg.Schema)
+	}
+}
+
+func TestLoadParsesTOML(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultTOMLFileName)
+	if err := os.WriteFile(path, []byte(`
+[mcp]
+tool_name = "submit_feedback"
+
+[[sinks]]
+type = "file"
+format = "json"
+`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, resolved, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if resolved != path {
+		t.Fatalf("expected %s, got %s", path, resolved)
+	}
+	if cfg.Sinks[0].Path != "feedback.jsonl" {
+		t.Fatalf("unexpected path %q", cfg.Sinks[0].Path)
+	}
+	if cfg.Sinks[0].Format != "json" {
+		t.Fatalf("unexpected format %q", cfg.Sinks[0].Format)
+	}
+}
+
 func TestLoadDefaultsToFileSinkWhenSinksMissing(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -63,7 +114,7 @@ func TestLoadDefaultsToFileSinkWhenSinksEmpty(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -88,7 +139,7 @@ func TestLoadAppliesGitDefaults(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"git"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -113,7 +164,7 @@ func TestLoadAppliesCommandDefaults(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"command","command":"bridge"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -154,7 +205,7 @@ func TestLoadAppliesApplicationInsightsDefaults(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"application_insights","connection_string":"InstrumentationKey=abc"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -173,7 +224,7 @@ func TestLoadResolvesApplicationInsightsConnectionStringEnv(t *testing.T) {
 	t.Setenv("APPINSIGHTS_CONNECTION_STRING", "InstrumentationKey=abc;IngestionEndpoint=https://example.com/")
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"application_insights","connection_string_env":"APPINSIGHTS_CONNECTION_STRING"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -192,7 +243,7 @@ func TestLoadRejectsBothApplicationInsightsConnectionStringSources(t *testing.T)
 	t.Setenv("APPINSIGHTS_CONNECTION_STRING", "InstrumentationKey=abc")
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"application_insights","connection_string":"InstrumentationKey=def","connection_string_env":"APPINSIGHTS_CONNECTION_STRING"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -204,7 +255,7 @@ func TestLoadRejectsBothApplicationInsightsConnectionStringSources(t *testing.T)
 
 func TestLoadRejectsMissingApplicationInsightsEnv(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"application_insights","connection_string_env":"APPINSIGHTS_CONNECTION_STRING"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -219,7 +270,7 @@ func TestLoadResolvesOTelEnvFields(t *testing.T) {
 	t.Setenv("OTEL_HEADERS", `{"Authorization":"Bearer test-token"}`)
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"otel","endpoint_env":"OTEL_ENDPOINT","headers_env":"OTEL_HEADERS"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -292,7 +343,7 @@ func TestLoadRejectsBothOTelEndpointSources(t *testing.T) {
 	t.Setenv("OTEL_ENDPOINT", "https://example.com/v1/logs")
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"otel","endpoint":"https://direct.example/v1/logs","endpoint_env":"OTEL_ENDPOINT"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -306,7 +357,7 @@ func TestLoadRejectsBothOTelHeadersSources(t *testing.T) {
 	t.Setenv("OTEL_HEADERS", `{"Authorization":"Bearer test-token"}`)
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"otel","headers":{"Authorization":"Bearer direct-token"},"headers_env":"OTEL_HEADERS"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -320,7 +371,7 @@ func TestLoadRejectsInvalidOTelHeadersEnv(t *testing.T) {
 	t.Setenv("OTEL_HEADERS", `not-json`)
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"otel","headers_env":"OTEL_HEADERS"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -332,7 +383,7 @@ func TestLoadRejectsInvalidOTelHeadersEnv(t *testing.T) {
 
 func TestLoadAutoloadsDotEnv(t *testing.T) {
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, DefaultFileName)
+	configPath := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(configPath, []byte(`{"sinks":[{"type":"otel","endpoint_env":"TEST_SUGGESTING_OTEL_ENDPOINT","headers_env":"TEST_SUGGESTING_OTEL_HEADERS"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -356,7 +407,7 @@ func TestLoadAutoloadsDotEnv(t *testing.T) {
 
 func TestLoadDotEnvDoesNotOverrideExistingEnv(t *testing.T) {
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, DefaultFileName)
+	configPath := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(configPath, []byte(`{"sinks":[{"type":"otel","endpoint_env":"BETTER_STACK_OTEL_ENDPOINT"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -381,7 +432,7 @@ func TestLoadAppliesJSONFileDefaults(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, DefaultFileName)
+	path := filepath.Join(dir, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"file","format":"json"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -408,7 +459,7 @@ func TestLocateWalksParents(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	path := filepath.Join(root, DefaultFileName)
+	path := filepath.Join(root, DefaultJSONFileName)
 	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"file"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -419,5 +470,50 @@ func TestLocateWalksParents(t *testing.T) {
 	}
 	if resolved != path {
 		t.Fatalf("expected %s, got %s", path, resolved)
+	}
+}
+
+func TestLoadPrefersTOMLOverJSON(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tomlPath := filepath.Join(dir, DefaultTOMLFileName)
+	if err := os.WriteFile(tomlPath, []byte(`
+[[sinks]]
+type = "file"
+format = "json"
+`), 0o644); err != nil {
+		t.Fatalf("write toml config: %v", err)
+	}
+
+	jsonPath := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(jsonPath, []byte(`{"sinks":[{"type":"file","format":"markdown"}]}`), 0o644); err != nil {
+		t.Fatalf("write json config: %v", err)
+	}
+
+	cfg, resolved, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if resolved != tomlPath {
+		t.Fatalf("expected %s, got %s", tomlPath, resolved)
+	}
+	if cfg.Sinks[0].Format != "json" {
+		t.Fatalf("expected toml config to win, got format %q", cfg.Sinks[0].Format)
+	}
+}
+
+func TestLoadValidatesAgainstSchema(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"http"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected schema validation error")
 	}
 }
