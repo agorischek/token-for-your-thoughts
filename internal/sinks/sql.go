@@ -43,7 +43,7 @@ func (s *SQLSink) Name() string {
 	return "sql"
 }
 
-func (s *SQLSink) Close() error {
+func (s *SQLSink) Close(_ context.Context) error {
 	return s.db.Close()
 }
 

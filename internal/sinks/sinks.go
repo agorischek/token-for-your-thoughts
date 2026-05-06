@@ -15,6 +15,11 @@ type Sink interface {
 	Submit(context.Context, feedback.Item) error
 }
 
+type managedSink interface {
+	Sink
+	Close(context.Context) error
+}
+
 type Result struct {
 	Succeeded []string
 	Failed    map[string]string
@@ -34,6 +39,8 @@ func NewManager(ctx context.Context, cfg config.Config, baseDir, repoRoot string
 		switch sinkConfig.Type {
 		case "file":
 			sink, err = NewFileSink(baseDir, sinkConfig)
+		case "http":
+			sink, err = NewHTTPSink(sinkConfig)
 		case "command":
 			sink, err = NewCommandSink(sinkConfig)
 		case "application_insights":
@@ -59,10 +66,7 @@ func NewManager(ctx context.Context, cfg config.Config, baseDir, repoRoot string
 func (m *Manager) Close(ctx context.Context) error {
 	var errs []error
 	for _, s := range m.sinks {
-		switch sink := s.(type) {
-		case *SQLSink:
-			errs = append(errs, sink.Close())
-		case *OTelSink:
+		if sink, ok := s.(managedSink); ok {
 			errs = append(errs, sink.Close(ctx))
 		}
 	}
