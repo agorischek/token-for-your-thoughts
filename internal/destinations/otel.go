@@ -52,7 +52,7 @@ func NewOTelDestination(ctx context.Context, cfg config.DestinationConfig) (*OTe
 	}
 
 	provider := sdklog.NewLoggerProvider(
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
+		sdklog.WithProcessor(sdklog.NewSimpleProcessor(exporter)),
 		sdklog.WithResource(res),
 	)
 
@@ -87,8 +87,5 @@ func (s *OTelDestination) Submit(ctx context.Context, item feedback.Item) error 
 
 	s.logger.Emit(ctx, record)
 
-	if err := s.provider.ForceFlush(ctx); err != nil {
-		return fmt.Errorf("flush otel logs: %w", err)
-	}
 	return nil
 }
