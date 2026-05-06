@@ -29,6 +29,12 @@ func Serve(ctx context.Context, version string, cfg config.Config, manager *dest
 		Version: version,
 	}, nil)
 
+	registerTool(server, cfg, manager)
+
+	return server.Run(ctx, &mcp.StdioTransport{})
+}
+
+func registerTool(server *mcp.Server, cfg config.Config, manager *destinations.Manager) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        cfg.ToolName(),
 		Description: cfg.ToolDescription(),
@@ -51,8 +57,6 @@ func Serve(ctx context.Context, version string, cfg config.Config, manager *dest
 
 		return nil, output, nil
 	})
-
-	return server.Run(ctx, &mcp.StdioTransport{})
 }
 
 func toolError(err error) *mcp.CallToolResult {
