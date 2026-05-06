@@ -1,0 +1,9 @@
+#:schema ./tfyt.schema.json
+
+env_file_path = ".env"
+
+[[sinks]]
+type = "otel"
+endpoint_env = "BETTER_STACK_OTEL_ENDPOINT"
+headers_env = "BETTER_STACK_OTEL_HEADERS"
+service_name = "tfyt"

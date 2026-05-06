@@ -45,7 +45,7 @@ tfyt version
 
 `tfyt` looks for `tfyt.toml` first and then `tfyt.json` in the current directory, walking up parent directories until it finds one. You can also pass `--config /path/to/tfyt.toml` or `--config /path/to/tfyt.json`.
 
-If a `.env` file exists in the same directory as the resolved config file, `tfyt` loads it automatically before resolving any `*_env` config fields. Existing process environment variables win over values from `.env`.
+If you set `env_file_path`, `tfyt` loads that env file before resolving any `*_env` config fields. Relative paths are resolved relative to the config file. Existing process environment variables win over values from the env file.
 
 A JSON Schema for the config lives at [tfyt.schema.json](/Users/umeboshi/Git/token-for-your-thoughts/tfyt.schema.json) and is included in GitHub release archives together with the example configs. The JSON example uses a top-level `$schema` property, and the TOML example uses Taplo's `#:schema` header directive so editors such as Even Better TOML can pick up the schema automatically.
 

@@ -53,6 +53,28 @@ func TestLoadAcceptsJSONSchemaProperty(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptsEnvFilePath(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"env_file_path":".env","sinks":[{"type":"file"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("TEST=1\n"), 0o644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.EnvFilePath != ".env" {
+		t.Fatalf("unexpected env file path %q", cfg.EnvFilePath)
+	}
+}
+
 func TestLoadParsesTOML(t *testing.T) {
 	t.Parallel()
 
@@ -384,7 +406,7 @@ func TestLoadRejectsInvalidOTelHeadersEnv(t *testing.T) {
 func TestLoadAutoloadsDotEnv(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, DefaultJSONFileName)
-	if err := os.WriteFile(configPath, []byte(`{"sinks":[{"type":"otel","endpoint_env":"TEST_SUGGESTING_OTEL_ENDPOINT","headers_env":"TEST_SUGGESTING_OTEL_HEADERS"}]}`), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(`{"env_file_path":".env","sinks":[{"type":"otel","endpoint_env":"TEST_SUGGESTING_OTEL_ENDPOINT","headers_env":"TEST_SUGGESTING_OTEL_HEADERS"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	dotEnvPath := filepath.Join(dir, ".env")
@@ -408,7 +430,7 @@ func TestLoadAutoloadsDotEnv(t *testing.T) {
 func TestLoadDotEnvDoesNotOverrideExistingEnv(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, DefaultJSONFileName)
-	if err := os.WriteFile(configPath, []byte(`{"sinks":[{"type":"otel","endpoint_env":"BETTER_STACK_OTEL_ENDPOINT"}]}`), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(`{"env_file_path":".env","sinks":[{"type":"otel","endpoint_env":"BETTER_STACK_OTEL_ENDPOINT"}]}`), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	dotEnvPath := filepath.Join(dir, ".env")
@@ -424,6 +446,47 @@ func TestLoadDotEnvDoesNotOverrideExistingEnv(t *testing.T) {
 	}
 
 	if cfg.Sinks[0].Endpoint != "https://from-process.example/v1/logs" {
+		t.Fatalf("unexpected endpoint %q", cfg.Sinks[0].Endpoint)
+	}
+}
+
+func TestLoadDoesNotAutoloadDotEnvWithoutEnvFilePath(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(configPath, []byte(`{"sinks":[{"type":"otel","endpoint_env":"BETTER_STACK_OTEL_ENDPOINT"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	dotEnvPath := filepath.Join(dir, ".env")
+	if err := os.WriteFile(dotEnvPath, []byte("BETTER_STACK_OTEL_ENDPOINT=https://from-dotenv.example/v1/logs\n"), 0o644); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected config load error")
+	}
+}
+
+func TestLoadResolvesRelativeEnvFilePathFromConfigDirectory(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	configPath := filepath.Join(configDir, DefaultJSONFileName)
+	if err := os.WriteFile(configPath, []byte(`{"env_file_path":"../shared.env","sinks":[{"type":"otel","endpoint_env":"BETTER_STACK_OTEL_ENDPOINT"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	dotEnvPath := filepath.Join(dir, "shared.env")
+	if err := os.WriteFile(dotEnvPath, []byte("BETTER_STACK_OTEL_ENDPOINT=https://from-relative-env.example/v1/logs\n"), 0o644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	cfg, _, err := Load("", configDir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Sinks[0].Endpoint != "https://from-relative-env.example/v1/logs" {
 		t.Fatalf("unexpected endpoint %q", cfg.Sinks[0].Endpoint)
 	}
 }

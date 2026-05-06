@@ -35,9 +35,10 @@ const (
 )
 
 type Config struct {
-	Schema string       `json:"$schema,omitempty" toml:"-"`
-	MCP    MCPConfig    `json:"mcp,omitempty" toml:"mcp"`
-	Sinks  []SinkConfig `json:"sinks,omitempty" toml:"sinks"`
+	Schema      string       `json:"$schema,omitempty" toml:"-"`
+	EnvFilePath string       `json:"env_file_path,omitempty" toml:"env_file_path"`
+	MCP         MCPConfig    `json:"mcp,omitempty" toml:"mcp"`
+	Sinks       []SinkConfig `json:"sinks,omitempty" toml:"sinks"`
 }
 
 type MCPConfig struct {
@@ -85,11 +86,6 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 		return Config{}, "", err
 	}
 
-	dotEnv, err := loadDotEnv(filepath.Dir(path))
-	if err != nil {
-		return Config{}, "", err
-	}
-
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, "", fmt.Errorf("read config %s: %w", path, err)
@@ -100,6 +96,11 @@ func Load(explicitPath, startDir string) (Config, string, error) {
 		return Config{}, "", err
 	}
 	if err := validateAgainstSchema(path, cfg); err != nil {
+		return Config{}, "", err
+	}
+
+	dotEnv, err := loadDotEnv(filepath.Dir(path), cfg.EnvFilePath)
+	if err != nil {
 		return Config{}, "", err
 	}
 
@@ -584,17 +585,24 @@ func validateAgainstSchema(path string, cfg Config) error {
 	return fmt.Errorf("config %s does not match tfyt.schema.json: %s", path, strings.Join(messages, "; "))
 }
 
-func loadDotEnv(dir string) (map[string]string, error) {
-	dotEnvPath := filepath.Join(dir, ".env")
+func loadDotEnv(baseDir, envFilePath string) (map[string]string, error) {
+	if strings.TrimSpace(envFilePath) == "" {
+		return nil, nil
+	}
+
+	dotEnvPath := envFilePath
+	if !filepath.IsAbs(dotEnvPath) {
+		dotEnvPath = filepath.Join(baseDir, dotEnvPath)
+	}
 	if _, err := os.Stat(dotEnvPath); err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, fmt.Errorf("stat env file %s: %w", dotEnvPath, err)
 		}
-		return nil, fmt.Errorf("stat .env %s: %w", dotEnvPath, err)
+		return nil, fmt.Errorf("stat env file %s: %w", dotEnvPath, err)
 	}
 	env, err := godotenv.Read(dotEnvPath)
 	if err != nil {
-		return nil, fmt.Errorf("read .env %s: %w", dotEnvPath, err)
+		return nil, fmt.Errorf("read env file %s: %w", dotEnvPath, err)
 	}
 	return env, nil
 }

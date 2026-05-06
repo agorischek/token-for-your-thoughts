@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Optional in-file schema association for JSON editors."
     },
+    "env_file_path": {
+      "type": "string",
+      "description": "Optional path to an env file to load before resolving *_env fields. Relative paths are resolved relative to the config file."
+    },
     "mcp": {
       "$ref": "#/$defs/mcp"
     },
