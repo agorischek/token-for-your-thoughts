@@ -90,10 +90,7 @@ func (m *Manager) Submit(ctx context.Context, item feedback.Item) (Result, error
 	}
 
 	sort.Strings(result.Succeeded)
-	if len(result.Failed) == 0 {
-		return result, nil
-	}
-	if len(result.Succeeded) == 0 {
+	if len(result.Failed) > 0 {
 		return result, errors.Join(errs...)
 	}
 	return result, nil

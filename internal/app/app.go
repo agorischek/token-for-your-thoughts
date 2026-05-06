@@ -88,10 +88,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		return err
 	}
 
-	result, err := runtime.Manager.Submit(ctx, item)
-	if err != nil {
-		return err
-	}
+	result, submitErr := runtime.Manager.Submit(ctx, item)
 
 	if _, err := fmt.Fprintf(stdout, "submitted feedback %s\n", item.ID); err != nil {
 		return err
@@ -110,7 +107,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		}
 	}
 
-	return nil
+	return submitErr
 }
 
 func runServeMCP(ctx context.Context, version string, args []string, stderr io.Writer) error {
