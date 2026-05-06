@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	tfytassets "github.com/agorischek/token-for-your-thoughts"
+	"github.com/agorischek/token-for-your-thoughts"
 	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/xeipuuv/gojsonschema"
@@ -568,7 +568,7 @@ func decodeConfig(path string, data []byte, cfg *Config) error {
 }
 
 func validateAgainstSchema(path string, cfg Config) error {
-	schemaLoader := gojsonschema.NewBytesLoader(tfytassets.ConfigSchema())
+	schemaLoader := gojsonschema.NewBytesLoader(tfyt.ConfigSchema())
 	documentLoader := gojsonschema.NewGoLoader(cfg)
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)

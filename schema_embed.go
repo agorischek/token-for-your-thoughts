@@ -1,4 +1,4 @@
-package tfytassets
+package tfyt
 
 import _ "embed"
 
