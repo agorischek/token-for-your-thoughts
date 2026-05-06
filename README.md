@@ -142,6 +142,15 @@ The Application Insights destination sends each feedback item as a `customEvent`
 
 The SQL destination is intentionally minimal and expects you to bring your own driver. You provide the driver name, DSN, and an `insert_statement`, which lets the destination work with many SQL backends without baking one specific database into the binary. If you want `tfyt` to create the table automatically, also provide a `create_statement`. In practice this destination is best used in a custom build that imports the SQL driver you want.
 
+The `insert_statement` receives exactly six positional parameters in this order:
+
+1. `id` — feedback GUID (string)
+2. `provider` — provider name (string)
+3. `feedback` — feedback text (string)
+4. `source` — submission source, e.g. `cli` or `mcp` (string)
+5. `created_at` — RFC 3339 timestamp (string)
+6. `metadata_json` — metadata as a JSON object (string)
+
 ```json
 {
   "type": "sql",

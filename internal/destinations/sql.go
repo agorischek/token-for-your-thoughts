@@ -47,6 +47,14 @@ func (s *SQLDestination) Close(_ context.Context) error {
 	return s.db.Close()
 }
 
+// Submit executes the configured insert statement with positional parameters
+// in the following fixed order:
+//  1. ID (string)
+//  2. Provider (string)
+//  3. Feedback (string)
+//  4. Source (string)
+//  5. CreatedAt (RFC 3339 timestamp string)
+//  6. Metadata (JSON string)
 func (s *SQLDestination) Submit(ctx context.Context, item feedback.Item) error {
 	if _, err := s.db.ExecContext(ctx, s.insertStmt,
 		item.ID,
