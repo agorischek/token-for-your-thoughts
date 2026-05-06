@@ -1,6 +1,7 @@
 package feedback
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,26 +70,35 @@ func (i Item) MarkdownEntry() string {
 	builder.WriteString("## ")
 	builder.WriteString(i.ID)
 	builder.WriteString("\n\n")
-	builder.WriteString("- Created At: ")
-	builder.WriteString(i.CreatedAt.Format(time.RFC3339))
-	builder.WriteString("\n")
-	builder.WriteString("- Provider: ")
-	builder.WriteString(i.Provider)
-	builder.WriteString("\n")
-	builder.WriteString("- Source: ")
-	builder.WriteString(i.Source)
-	builder.WriteString("\n")
-	builder.WriteString("- Feedback: ")
 	builder.WriteString(i.Feedback)
-	builder.WriteString("\n")
+	builder.WriteString("\n\n")
+	builder.WriteString("_From ")
+	builder.WriteString(i.Provider)
+	builder.WriteString(" via ")
+	builder.WriteString(strings.ToUpper(i.Source))
+	builder.WriteString(" at ")
+	builder.WriteString(i.CreatedAt.Format(time.RFC3339))
+	builder.WriteString("_")
 	if len(i.Metadata) > 0 {
-		builder.WriteString("\n```json\n")
-		builder.WriteString(i.MetadataJSON())
-		builder.WriteString("\n```\n")
+		builder.WriteString("\n\n```json\n")
+		builder.WriteString(i.MarkdownMetadataJSON())
+		builder.WriteString("\n```")
 	}
-	builder.WriteString("\n")
 
 	return builder.String()
+}
+
+func (i Item) MarkdownMetadataJSON() string {
+	data, err := json.Marshal(i.Metadata)
+	if err != nil {
+		return "{}"
+	}
+
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, data, "", "  "); err != nil {
+		return string(data)
+	}
+	return pretty.String()
 }
 
 func (i Item) String() string {

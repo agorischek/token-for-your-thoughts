@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
@@ -14,6 +15,8 @@ type FileDestination struct {
 	path   string
 	format string
 }
+
+const markdownFeedbackPreamble = "# Feedback\n\nRuntime feedback entries collected by `tfyt` will appear here when the file destination is enabled."
 
 func NewFileDestination(baseDir string, cfg config.DestinationConfig) (*FileDestination, error) {
 	path := cfg.Path
@@ -48,18 +51,27 @@ func (s *FileDestination) Submit(_ context.Context, item feedback.Item) error {
 			return fmt.Errorf("append json entry: %w", err)
 		}
 	default:
-		info, err := file.Stat()
-		if err != nil {
-			return fmt.Errorf("stat feedback file: %w", err)
-		}
-		if info.Size() == 0 {
-			if _, err := file.WriteString("# Feedback\n\n"); err != nil {
-				return fmt.Errorf("write header: %w", err)
-			}
+		existing, err := os.ReadFile(s.path)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("read feedback file: %w", err)
 		}
 
-		if _, err := file.WriteString(item.MarkdownEntry()); err != nil {
-			return fmt.Errorf("append markdown entry: %w", err)
+		content := strings.TrimRight(string(existing), "\n")
+		entry := strings.TrimRight(item.MarkdownEntry(), "\n")
+		if strings.TrimSpace(content) == "" {
+			content = markdownFeedbackPreamble + "\n\n" + entry + "\n"
+		} else {
+			content = content + "\n\n" + entry + "\n"
+		}
+
+		if err := file.Truncate(0); err != nil {
+			return fmt.Errorf("truncate feedback file: %w", err)
+		}
+		if _, err := file.Seek(0, 0); err != nil {
+			return fmt.Errorf("seek feedback file: %w", err)
+		}
+		if _, err := file.WriteString(content); err != nil {
+			return fmt.Errorf("write markdown entry: %w", err)
 		}
 	}
 

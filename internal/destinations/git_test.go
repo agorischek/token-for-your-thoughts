@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
-func TestGitSinkWritesPerFeedbackFile(t *testing.T) {
+func TestGitDestinationWritesPerFeedbackFile(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -26,9 +27,12 @@ func TestGitSinkWritesPerFeedbackFile(t *testing.T) {
 		t.Fatalf("new git destination: %v", err)
 	}
 
-	item, err := feedback.New("Claude Code", "The CLI hid the real error output.", "cli", nil)
-	if err != nil {
-		t.Fatalf("new item: %v", err)
+	item := feedback.Item{
+		ID:        "97059329-7216-4b46-8cf3-b21223114f3f",
+		Provider:  "Claude Code",
+		Feedback:  "The CLI hid the real error output.",
+		Source:    "cli",
+		CreatedAt: time.Date(2026, 5, 6, 1, 59, 30, 0, time.UTC),
 	}
 
 	if filepath.IsAbs(destination.directory) {
@@ -51,14 +55,18 @@ func TestGitSinkWritesPerFeedbackFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}
-	for _, expected := range []string{item.ID, "Provider: Claude Code", "Feedback: The CLI hid the real error output."} {
+	for _, expected := range []string{
+		item.ID,
+		"The CLI hid the real error output.",
+		"_From Claude Code via CLI at 2026-05-06T01:59:30Z_",
+	} {
 		if !strings.Contains(string(data), expected) {
 			t.Fatalf("file missing %q", expected)
 		}
 	}
 }
 
-func TestGitSinkWritesJSONFileNameAndContent(t *testing.T) {
+func TestGitDestinationWritesJSONFileNameAndContent(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
