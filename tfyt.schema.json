@@ -58,6 +58,9 @@
           "$ref": "#/$defs/applicationInsightsDestination"
         },
         {
+          "$ref": "#/$defs/githubDiscussionsDestination"
+        },
+        {
           "$ref": "#/$defs/sqlDestination"
         },
         {
@@ -170,7 +173,8 @@
           "format": "uri"
         },
         "url_env": {
-          "type": "string"
+          "type": "string",
+          "description": "Env var name for the URL. If nonempty, this overrides url."
         },
         "method": {
           "type": "string",
@@ -180,7 +184,8 @@
           "$ref": "#/$defs/headers"
         },
         "headers_env": {
-          "type": "string"
+          "type": "string",
+          "description": "Env var name for a JSON object of headers. If nonempty, this overrides headers."
         },
         "timeout_seconds": {
           "type": "integer",
@@ -212,22 +217,6 @@
               ]
             }
           ]
-        },
-        {
-          "not": {
-            "required": [
-              "url",
-              "url_env"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "headers",
-              "headers_env"
-            ]
-          }
         }
       ]
     },
@@ -242,7 +231,8 @@
           "type": "string"
         },
         "connection_string_env": {
-          "type": "string"
+          "type": "string",
+          "description": "Env var name for the connection string. If nonempty, this overrides connection_string."
         },
         "event_name": {
           "type": "string"
@@ -265,14 +255,58 @@
               ]
             }
           ]
+        }
+      ]
+    },
+    "githubDiscussionsDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "github_discussions"
         },
+        "repository": {
+          "type": "string",
+          "description": "Repository in owner/repo form where discussions should be created."
+        },
+        "category": {
+          "type": "string",
+          "description": "Discussion category name or slug. Ignored when category_id is set."
+        },
+        "category_id": {
+          "type": "string",
+          "description": "Explicit GitHub discussion category node ID."
+        },
+        "token": {
+          "type": "string"
+        },
+        "token_env": {
+          "type": "string",
+          "description": "Env var name for the GitHub token. If nonempty, this overrides token. If omitted and token is empty, tfyt falls back to GITHUB_TOKEN."
+        },
+        "title_template": {
+          "type": "string",
+          "description": "Go text/template for the discussion title. Defaults to Feedback {{ .ID }} from {{ .Provider }}."
+        }
+      },
+      "required": [
+        "type",
+        "repository"
+      ],
+      "allOf": [
         {
-          "not": {
-            "required": [
-              "connection_string",
-              "connection_string_env"
-            ]
-          }
+          "anyOf": [
+            {
+              "required": [
+                "category"
+              ]
+            },
+            {
+              "required": [
+                "category_id"
+              ]
+            }
+          ]
         }
       ]
     },
@@ -320,13 +354,15 @@
           "type": "string"
         },
         "endpoint_env": {
-          "type": "string"
+          "type": "string",
+          "description": "Env var name for the OTLP endpoint. If nonempty, this overrides endpoint."
         },
         "headers": {
           "$ref": "#/$defs/headers"
         },
         "headers_env": {
-          "type": "string"
+          "type": "string",
+          "description": "Env var name for a JSON object of headers. If nonempty, this overrides headers."
         },
         "insecure": {
           "type": "boolean"
@@ -337,24 +373,6 @@
       },
       "required": [
         "type"
-      ],
-      "allOf": [
-        {
-          "not": {
-            "required": [
-              "endpoint",
-              "endpoint_env"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "headers",
-              "headers_env"
-            ]
-          }
-        }
       ]
     }
   }

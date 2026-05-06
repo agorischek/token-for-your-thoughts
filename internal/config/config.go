@@ -30,6 +30,7 @@ const (
 	defaultApplicationInsightsEventName = "tfyt feedback"
 	defaultHTTPMethod                   = "POST"
 	defaultHTTPTimeoutSeconds           = 10
+	defaultGitHubDiscussionsTitle       = "Feedback {{ .ID }} from {{ .Provider }}"
 	defaultSQLTable                     = "feedback"
 	defaultOTelServiceName              = "tfyt"
 )
@@ -70,6 +71,12 @@ type DestinationConfig struct {
 	ConnectionString    string            `json:"connection_string,omitempty" toml:"connection_string"`
 	ConnectionStringEnv string            `json:"connection_string_env,omitempty" toml:"connection_string_env"`
 	EventName           string            `json:"event_name,omitempty" toml:"event_name"`
+	Repository          string            `json:"repository,omitempty" toml:"repository"`
+	Category            string            `json:"category,omitempty" toml:"category"`
+	CategoryID          string            `json:"category_id,omitempty" toml:"category_id"`
+	Token               string            `json:"token,omitempty" toml:"token"`
+	TokenEnv            string            `json:"token_env,omitempty" toml:"token_env"`
+	TitleTemplate       string            `json:"title_template,omitempty" toml:"title_template"`
 	Branch              string            `json:"branch,omitempty" toml:"branch"`
 	Remote              string            `json:"remote,omitempty" toml:"remote"`
 	Push                *bool             `json:"push,omitempty" toml:"push"`
@@ -199,6 +206,10 @@ func (c *Config) applyDefaults() {
 			if strings.TrimSpace(destination.EventName) == "" {
 				destination.EventName = defaultApplicationInsightsEventName
 			}
+		case "github_discussions":
+			if strings.TrimSpace(destination.TitleTemplate) == "" {
+				destination.TitleTemplate = defaultGitHubDiscussionsTitle
+			}
 		case "sql":
 			if strings.TrimSpace(destination.Table) == "" {
 				destination.Table = defaultSQLTable
@@ -227,14 +238,8 @@ func (c Config) validate() error {
 				return fmt.Errorf("file destination format must be markdown or json")
 			}
 		case "http":
-			if hasBothValues(destination.URL, destination.URLEnv) {
-				return errors.New("http destination cannot set both url and url_env")
-			}
 			if strings.TrimSpace(destination.URL) == "" {
 				return errors.New("http destination requires url or url_env")
-			}
-			if len(destination.Headers) > 0 && strings.TrimSpace(destination.HeadersEnv) != "" {
-				return errors.New("http destination cannot set both headers and headers_env")
 			}
 			if strings.TrimSpace(destination.Method) == "" {
 				return errors.New("http destination requires method")
@@ -255,14 +260,24 @@ func (c Config) validate() error {
 				return errors.New("command destination requires method")
 			}
 		case "application_insights":
-			if hasBothValues(destination.ConnectionString, destination.ConnectionStringEnv) {
-				return errors.New("application_insights destination cannot set both connection_string and connection_string_env")
-			}
 			if strings.TrimSpace(destination.ConnectionString) == "" {
 				return errors.New("application_insights destination requires connection_string or connection_string_env")
 			}
 			if strings.TrimSpace(destination.EventName) == "" {
 				return errors.New("application_insights destination requires event_name")
+			}
+		case "github_discussions":
+			if strings.TrimSpace(destination.Repository) == "" {
+				return errors.New("github_discussions destination requires repository")
+			}
+			if strings.TrimSpace(destination.Category) == "" && strings.TrimSpace(destination.CategoryID) == "" {
+				return errors.New("github_discussions destination requires category or category_id")
+			}
+			if strings.TrimSpace(destination.Token) == "" {
+				return errors.New("github_discussions destination requires token or token_env")
+			}
+			if strings.TrimSpace(destination.TitleTemplate) == "" {
+				return errors.New("github_discussions destination requires title_template")
 			}
 		case "git":
 			if !isSupportedFormat(destination.Format) {
@@ -291,12 +306,6 @@ func (c Config) validate() error {
 				return errors.New("sql destination with auto_create requires create_statement")
 			}
 		case "otel":
-			if hasBothValues(destination.Endpoint, destination.EndpointEnv) {
-				return errors.New("otel destination cannot set both endpoint and endpoint_env")
-			}
-			if len(destination.Headers) > 0 && strings.TrimSpace(destination.HeadersEnv) != "" {
-				return errors.New("otel destination cannot set both headers and headers_env")
-			}
 		default:
 			return fmt.Errorf("unsupported destination type %q", destination.Type)
 		}
@@ -337,6 +346,14 @@ var allowedFieldsByDestinationType = map[string]map[string]bool{
 		"connection_string":     true,
 		"connection_string_env": true,
 		"event_name":            true,
+	},
+	"github_discussions": {
+		"repository":     true,
+		"category":       true,
+		"category_id":    true,
+		"token":          true,
+		"token_env":      true,
+		"title_template": true,
 	},
 	"sql": {
 		"driver":           true,
@@ -386,6 +403,12 @@ func (s DestinationConfig) rejectUnknownFields() error {
 		{"connection_string", strings.TrimSpace(s.ConnectionString) != ""},
 		{"connection_string_env", strings.TrimSpace(s.ConnectionStringEnv) != ""},
 		{"event_name", strings.TrimSpace(s.EventName) != ""},
+		{"repository", strings.TrimSpace(s.Repository) != ""},
+		{"category", strings.TrimSpace(s.Category) != ""},
+		{"category_id", strings.TrimSpace(s.CategoryID) != ""},
+		{"token", strings.TrimSpace(s.Token) != ""},
+		{"token_env", strings.TrimSpace(s.TokenEnv) != ""},
+		{"title_template", strings.TrimSpace(s.TitleTemplate) != ""},
 		{"branch", strings.TrimSpace(s.Branch) != ""},
 		{"remote", strings.TrimSpace(s.Remote) != ""},
 		{"push", s.Push != nil},
@@ -437,6 +460,17 @@ func (c *Config) resolveEnv(dotEnv map[string]string) error {
 			}
 			destination.ConnectionString = value
 			destination.ConnectionStringEnv = ""
+		case "github_discussions":
+			tokenEnv := destination.TokenEnv
+			if strings.TrimSpace(destination.Token) == "" && strings.TrimSpace(tokenEnv) == "" {
+				tokenEnv = "GITHUB_TOKEN"
+			}
+			value, err := resolveExclusiveEnvString("github_discussions token", destination.Token, tokenEnv, dotEnv)
+			if err != nil {
+				return err
+			}
+			destination.Token = value
+			destination.TokenEnv = ""
 		case "otel":
 			value, err := resolveExclusiveEnvString("otel endpoint", destination.Endpoint, destination.EndpointEnv, dotEnv)
 			if err != nil {
@@ -457,9 +491,6 @@ func (c *Config) resolveEnv(dotEnv map[string]string) error {
 }
 
 func resolveExclusiveEnvString(label, directValue, envName string, dotEnv map[string]string) (string, error) {
-	if hasBothValues(directValue, envName) {
-		return "", fmt.Errorf("%s cannot set both direct value and _env field", label)
-	}
 	if strings.TrimSpace(envName) == "" {
 		return directValue, nil
 	}
@@ -471,14 +502,7 @@ func resolveExclusiveEnvString(label, directValue, envName string, dotEnv map[st
 	return value, nil
 }
 
-func hasBothValues(a, b string) bool {
-	return strings.TrimSpace(a) != "" && strings.TrimSpace(b) != ""
-}
-
 func resolveExclusiveEnvMap(label string, directValue map[string]string, envName string, dotEnv map[string]string) (map[string]string, error) {
-	if len(directValue) > 0 && strings.TrimSpace(envName) != "" {
-		return nil, fmt.Errorf("%s cannot set both direct value and _env field", label)
-	}
 	if strings.TrimSpace(envName) == "" {
 		return directValue, nil
 	}

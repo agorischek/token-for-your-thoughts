@@ -37,6 +37,13 @@
       "event_name": "tfyt feedback"
     },
     {
+      "type": "github_discussions",
+      "repository": "octo/example",
+      "category": "feedback",
+      "token_env": "GITHUB_TOKEN",
+      "title_template": "Feedback {{ .ID }} from {{ .Provider }}"
+    },
+    {
       "type": "sql",
       "driver": "postgres",
       "dsn": "postgres://user:pass@localhost:5432/app?sslmode=disable",

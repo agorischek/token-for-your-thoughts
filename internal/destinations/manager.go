@@ -45,6 +45,8 @@ func NewManager(ctx context.Context, cfg config.Config, baseDir, repoRoot string
 			destination, err = NewCommandDestination(destinationConfig)
 		case "application_insights":
 			destination, err = NewApplicationInsightsDestination(destinationConfig)
+		case "github_discussions":
+			destination, err = NewGitHubDiscussionsDestination(destinationConfig)
 		case "git":
 			destination, err = NewGitDestination(baseDir, repoRoot, destinationConfig)
 		case "sql":

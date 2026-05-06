@@ -3,6 +3,9 @@ module github.com/agorischek/token-for-your-thoughts
 go 1.26.1
 
 require (
+	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/creativeprojects/go-selfupdate v1.5.2
+	github.com/google/go-github/v74 v74.0.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.6.0
@@ -18,15 +21,12 @@ require (
 require (
 	code.gitea.io/sdk/gitea v0.22.1 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/creativeprojects/go-selfupdate v1.5.2 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/google/go-github/v74 v74.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect

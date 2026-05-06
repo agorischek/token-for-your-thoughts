@@ -242,6 +242,75 @@ func TestLoadAppliesApplicationInsightsDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadAppliesGitHubDiscussionsDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"github_discussions","repository":"octo/example","category":"feedback","token":"test-token"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Destinations[0].TitleTemplate != "Feedback {{ .ID }} from {{ .Provider }}" {
+		t.Fatalf("unexpected title template %q", cfg.Destinations[0].TitleTemplate)
+	}
+}
+
+func TestLoadPrefersGitHubDiscussionsTokenEnvOverDirectValue(t *testing.T) {
+	t.Setenv("GH_DISCUSSIONS_TOKEN", "env-token")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"github_discussions","repository":"octo/example","category":"feedback","token":"direct-token","token_env":"GH_DISCUSSIONS_TOKEN"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].Token != "env-token" {
+		t.Fatalf("unexpected token %q", cfg.Destinations[0].Token)
+	}
+}
+
+func TestLoadUsesDefaultGitHubTokenEnvWhenUnset(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "github-token")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"github_discussions","repository":"octo/example","category":"feedback"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].Token != "github-token" {
+		t.Fatalf("unexpected token %q", cfg.Destinations[0].Token)
+	}
+}
+
+func TestLoadRejectsMissingGitHubDiscussionsToken(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"github_discussions","repository":"octo/example","category":"feedback"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected config load error")
+	}
+}
+
 func TestLoadResolvesApplicationInsightsConnectionStringEnv(t *testing.T) {
 	t.Setenv("APPINSIGHTS_CONNECTION_STRING", "InstrumentationKey=abc;IngestionEndpoint=https://example.com/")
 
@@ -261,7 +330,7 @@ func TestLoadResolvesApplicationInsightsConnectionStringEnv(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsBothApplicationInsightsConnectionStringSources(t *testing.T) {
+func TestLoadPrefersApplicationInsightsConnectionStringEnvOverDirectValue(t *testing.T) {
 	t.Setenv("APPINSIGHTS_CONNECTION_STRING", "InstrumentationKey=abc")
 
 	dir := t.TempDir()
@@ -270,8 +339,12 @@ func TestLoadRejectsBothApplicationInsightsConnectionStringSources(t *testing.T)
 		t.Fatalf("write config: %v", err)
 	}
 
-	if _, _, err := Load("", dir); err == nil {
-		t.Fatal("expected config load error")
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].ConnectionString != "InstrumentationKey=abc" {
+		t.Fatalf("unexpected connection string %q", cfg.Destinations[0].ConnectionString)
 	}
 }
 
@@ -333,7 +406,7 @@ func TestLoadResolvesHTTPEnvFields(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsBothHTTPURLSources(t *testing.T) {
+func TestLoadPrefersHTTPURLEnvOverDirectValue(t *testing.T) {
 	t.Setenv("TFYT_HTTP_URL", "https://example.com/feedback")
 
 	dir := t.TempDir()
@@ -342,12 +415,16 @@ func TestLoadRejectsBothHTTPURLSources(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if _, _, err := Load("", dir); err == nil {
-		t.Fatal("expected config load error")
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].URL != "https://example.com/feedback" {
+		t.Fatalf("unexpected url %q", cfg.Destinations[0].URL)
 	}
 }
 
-func TestLoadRejectsBothHTTPHeaderSources(t *testing.T) {
+func TestLoadPrefersHTTPHeadersEnvOverDirectValue(t *testing.T) {
 	t.Setenv("TFYT_HTTP_HEADERS", `{"Authorization":"Bearer test-token"}`)
 
 	dir := t.TempDir()
@@ -356,12 +433,16 @@ func TestLoadRejectsBothHTTPHeaderSources(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if _, _, err := Load("", dir); err == nil {
-		t.Fatal("expected config load error")
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].Headers["Authorization"] != "Bearer test-token" {
+		t.Fatalf("unexpected authorization header %q", cfg.Destinations[0].Headers["Authorization"])
 	}
 }
 
-func TestLoadRejectsBothOTelEndpointSources(t *testing.T) {
+func TestLoadPrefersOTelEndpointEnvOverDirectValue(t *testing.T) {
 	t.Setenv("OTEL_ENDPOINT", "https://example.com/v1/logs")
 
 	dir := t.TempDir()
@@ -370,12 +451,16 @@ func TestLoadRejectsBothOTelEndpointSources(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if _, _, err := Load("", dir); err == nil {
-		t.Fatal("expected config load error")
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].Endpoint != "https://example.com/v1/logs" {
+		t.Fatalf("unexpected endpoint %q", cfg.Destinations[0].Endpoint)
 	}
 }
 
-func TestLoadRejectsBothOTelHeadersSources(t *testing.T) {
+func TestLoadPrefersOTelHeadersEnvOverDirectValue(t *testing.T) {
 	t.Setenv("OTEL_HEADERS", `{"Authorization":"Bearer test-token"}`)
 
 	dir := t.TempDir()
@@ -384,8 +469,12 @@ func TestLoadRejectsBothOTelHeadersSources(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if _, _, err := Load("", dir); err == nil {
-		t.Fatal("expected config load error")
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].Headers["Authorization"] != "Bearer test-token" {
+		t.Fatalf("unexpected authorization header %q", cfg.Destinations[0].Headers["Authorization"])
 	}
 }
 
@@ -400,6 +489,48 @@ func TestLoadRejectsInvalidOTelHeadersEnv(t *testing.T) {
 
 	if _, _, err := Load("", dir); err == nil {
 		t.Fatal("expected config load error")
+	}
+}
+
+func TestLoadDoesNotFallBackToDirectValueWhenHTTPHeadersEnvIsInvalid(t *testing.T) {
+	t.Setenv("TFYT_HTTP_HEADERS", `not-json`)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"http","url":"https://example.com/feedback","headers":{"Authorization":"Bearer direct-token"},"headers_env":"TFYT_HTTP_HEADERS"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected config load error")
+	}
+}
+
+func TestLoadDoesNotFallBackToDirectValueWhenOTelEndpointEnvIsMissing(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"otel","endpoint":"https://direct.example/v1/logs","endpoint_env":"MISSING_OTEL_ENDPOINT"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected config load error")
+	}
+}
+
+func TestLoadUsesDirectValueWhenEnvFieldIsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"destinations":[{"type":"otel","endpoint":"https://direct.example/v1/logs","endpoint_env":"   "} ]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Destinations[0].Endpoint != "https://direct.example/v1/logs" {
+		t.Fatalf("unexpected endpoint %q", cfg.Destinations[0].Endpoint)
 	}
 }
 
