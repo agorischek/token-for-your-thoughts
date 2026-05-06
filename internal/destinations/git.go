@@ -66,6 +66,12 @@ func (s *GitDestination) Submit(ctx context.Context, item feedback.Item) error {
 	if err := s.gitRun(ctx, tempDir, "init"); err != nil {
 		return fmt.Errorf("init temp repo: %w", err)
 	}
+	if err := s.gitRun(ctx, tempDir, "config", "user.name", "tfyt"); err != nil {
+		return fmt.Errorf("set git user.name: %w", err)
+	}
+	if err := s.gitRun(ctx, tempDir, "config", "user.email", "tfyt@noreply"); err != nil {
+		return fmt.Errorf("set git user.email: %w", err)
+	}
 	if err := s.gitRun(ctx, tempDir, "remote", "add", "origin", remoteURL); err != nil {
 		return fmt.Errorf("add origin remote: %w", err)
 	}
