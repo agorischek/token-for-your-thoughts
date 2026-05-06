@@ -121,6 +121,27 @@ Example:
 }
 ```
 
+#### `http`
+
+- Sends each feedback item as JSON to a webhook endpoint.
+- Uses `POST` by default, but you can override it with `method`.
+- The request body is the full feedback item: `id`, `provider`, `feedback`, `source`, `created_at`, and optional `metadata`.
+- Supports either `url` or `url_env`, and either `headers` or `headers_env`, but not both forms at once.
+- Defaults `timeout_seconds` to `10`.
+- If `success_statuses` is omitted, any `2xx` response counts as success.
+- `headers_env` should contain a JSON object string such as `{"Authorization":"Bearer ..."}`. In a `.env` file, wrap that JSON in single quotes.
+- Example:
+
+```json
+{
+  "type": "http",
+  "url_env": "TFYT_HTTP_URL",
+  "headers_env": "TFYT_HTTP_HEADERS",
+  "timeout_seconds": 10,
+  "success_statuses": [202]
+}
+```
+
 #### `application_insights`
 
 - Sends each feedback item as a `customEvent` to the Application Insights ingestion endpoint.

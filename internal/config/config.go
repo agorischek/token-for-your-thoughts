@@ -24,6 +24,8 @@ const (
 	defaultGitCommitPrefix              = "Add feedback entry"
 	defaultCommandMethod                = "submit_feedback"
 	defaultApplicationInsightsEventName = "tfyt feedback"
+	defaultHTTPMethod                   = "POST"
+	defaultHTTPTimeoutSeconds           = 10
 	defaultSQLTable                     = "feedback"
 	defaultOTelServiceName              = "tfyt"
 )
@@ -39,33 +41,37 @@ type MCPConfig struct {
 }
 
 type SinkConfig struct {
-	Type string `json:"type"`
+	Type string `json:"type" toml:"type"`
 
-	Path                string            `json:"path,omitempty"`
-	Directory           string            `json:"directory,omitempty"`
-	Format              string            `json:"format,omitempty"`
-	Command             string            `json:"command,omitempty"`
-	Args                []string          `json:"args,omitempty"`
-	Method              string            `json:"method,omitempty"`
-	ConnectionString    string            `json:"connection_string,omitempty"`
-	ConnectionStringEnv string            `json:"connection_string_env,omitempty"`
-	EventName           string            `json:"event_name,omitempty"`
-	Branch              string            `json:"branch,omitempty"`
-	Remote              string            `json:"remote,omitempty"`
-	Push                *bool             `json:"push,omitempty"`
-	CommitMessage       string            `json:"commit_message,omitempty"`
-	Driver              string            `json:"driver,omitempty"`
-	DSN                 string            `json:"dsn,omitempty"`
-	Table               string            `json:"table,omitempty"`
-	AutoCreate          *bool             `json:"auto_create,omitempty"`
-	CreateStmt          string            `json:"create_statement,omitempty"`
-	InsertStmt          string            `json:"insert_statement,omitempty"`
-	Endpoint            string            `json:"endpoint,omitempty"`
-	EndpointEnv         string            `json:"endpoint_env,omitempty"`
-	Headers             map[string]string `json:"headers,omitempty"`
-	HeadersEnv          string            `json:"headers_env,omitempty"`
-	Insecure            bool              `json:"insecure,omitempty"`
-	ServiceName         string            `json:"service_name,omitempty"`
+	Path                string            `json:"path,omitempty" toml:"path"`
+	Directory           string            `json:"directory,omitempty" toml:"directory"`
+	Format              string            `json:"format,omitempty" toml:"format"`
+	URL                 string            `json:"url,omitempty" toml:"url"`
+	URLEnv              string            `json:"url_env,omitempty" toml:"url_env"`
+	Command             string            `json:"command,omitempty" toml:"command"`
+	Args                []string          `json:"args,omitempty" toml:"args"`
+	Method              string            `json:"method,omitempty" toml:"method"`
+	TimeoutSeconds      int               `json:"timeout_seconds,omitempty" toml:"timeout_seconds"`
+	SuccessStatuses     []int             `json:"success_statuses,omitempty" toml:"success_statuses"`
+	ConnectionString    string            `json:"connection_string,omitempty" toml:"connection_string"`
+	ConnectionStringEnv string            `json:"connection_string_env,omitempty" toml:"connection_string_env"`
+	EventName           string            `json:"event_name,omitempty" toml:"event_name"`
+	Branch              string            `json:"branch,omitempty" toml:"branch"`
+	Remote              string            `json:"remote,omitempty" toml:"remote"`
+	Push                *bool             `json:"push,omitempty" toml:"push"`
+	CommitMessage       string            `json:"commit_message,omitempty" toml:"commit_message"`
+	Driver              string            `json:"driver,omitempty" toml:"driver"`
+	DSN                 string            `json:"dsn,omitempty" toml:"dsn"`
+	Table               string            `json:"table,omitempty" toml:"table"`
+	AutoCreate          *bool             `json:"auto_create,omitempty" toml:"auto_create"`
+	CreateStmt          string            `json:"create_statement,omitempty" toml:"create_statement"`
+	InsertStmt          string            `json:"insert_statement,omitempty" toml:"insert_statement"`
+	Endpoint            string            `json:"endpoint,omitempty" toml:"endpoint"`
+	EndpointEnv         string            `json:"endpoint_env,omitempty" toml:"endpoint_env"`
+	Headers             map[string]string `json:"headers,omitempty" toml:"headers"`
+	HeadersEnv          string            `json:"headers_env,omitempty" toml:"headers_env"`
+	Insecure            bool              `json:"insecure,omitempty" toml:"insecure"`
+	ServiceName         string            `json:"service_name,omitempty" toml:"service_name"`
 }
 
 func Load(explicitPath, startDir string) (Config, string, error) {
@@ -166,6 +172,13 @@ func (c *Config) applyDefaults() {
 			if strings.TrimSpace(sink.Method) == "" {
 				sink.Method = defaultCommandMethod
 			}
+		case "http":
+			if strings.TrimSpace(sink.Method) == "" {
+				sink.Method = defaultHTTPMethod
+			}
+			if sink.TimeoutSeconds <= 0 {
+				sink.TimeoutSeconds = defaultHTTPTimeoutSeconds
+			}
 		case "application_insights":
 			if strings.TrimSpace(sink.EventName) == "" {
 				sink.EventName = defaultApplicationInsightsEventName
@@ -196,6 +209,27 @@ func (c Config) validate() error {
 		case "file":
 			if !isSupportedFormat(sink.Format) {
 				return fmt.Errorf("file sink format must be markdown or json")
+			}
+		case "http":
+			if hasBothValues(sink.URL, sink.URLEnv) {
+				return errors.New("http sink cannot set both url and url_env")
+			}
+			if strings.TrimSpace(sink.URL) == "" {
+				return errors.New("http sink requires url or url_env")
+			}
+			if len(sink.Headers) > 0 && strings.TrimSpace(sink.HeadersEnv) != "" {
+				return errors.New("http sink cannot set both headers and headers_env")
+			}
+			if strings.TrimSpace(sink.Method) == "" {
+				return errors.New("http sink requires method")
+			}
+			if sink.TimeoutSeconds <= 0 {
+				return errors.New("http sink timeout_seconds must be greater than zero")
+			}
+			for _, status := range sink.SuccessStatuses {
+				if status < 100 || status > 599 {
+					return fmt.Errorf("http sink success_statuses must contain valid HTTP status codes")
+				}
 			}
 		case "command":
 			if strings.TrimSpace(sink.Command) == "" {
@@ -274,6 +308,15 @@ var allowedFieldsBySinkType = map[string]map[string]bool{
 		"args":    true,
 		"method":  true,
 	},
+	"http": {
+		"url":              true,
+		"url_env":          true,
+		"method":           true,
+		"headers":          true,
+		"headers_env":      true,
+		"timeout_seconds":  true,
+		"success_statuses": true,
+	},
 	"application_insights": {
 		"connection_string":     true,
 		"connection_string_env": true,
@@ -317,9 +360,13 @@ func (s SinkConfig) rejectUnknownFields() error {
 		{"path", strings.TrimSpace(s.Path) != ""},
 		{"directory", strings.TrimSpace(s.Directory) != ""},
 		{"format", strings.TrimSpace(s.Format) != "" && s.Format != "markdown"},
+		{"url", strings.TrimSpace(s.URL) != ""},
+		{"url_env", strings.TrimSpace(s.URLEnv) != ""},
 		{"command", strings.TrimSpace(s.Command) != ""},
 		{"args", len(s.Args) > 0},
 		{"method", strings.TrimSpace(s.Method) != ""},
+		{"timeout_seconds", s.TimeoutSeconds != 0},
+		{"success_statuses", len(s.SuccessStatuses) > 0},
 		{"connection_string", strings.TrimSpace(s.ConnectionString) != ""},
 		{"connection_string_env", strings.TrimSpace(s.ConnectionStringEnv) != ""},
 		{"event_name", strings.TrimSpace(s.EventName) != ""},
@@ -353,6 +400,20 @@ func (c *Config) resolveEnv(dotEnv map[string]string) error {
 	for i := range c.Sinks {
 		sink := &c.Sinks[i]
 		switch strings.ToLower(strings.TrimSpace(sink.Type)) {
+		case "http":
+			value, err := resolveExclusiveEnvString("http url", sink.URL, sink.URLEnv, dotEnv)
+			if err != nil {
+				return err
+			}
+			sink.URL = value
+			sink.URLEnv = ""
+
+			headers, err := resolveExclusiveEnvMap("http headers", sink.Headers, sink.HeadersEnv, dotEnv)
+			if err != nil {
+				return err
+			}
+			sink.Headers = headers
+			sink.HeadersEnv = ""
 		case "application_insights":
 			value, err := resolveExclusiveEnvString("application_insights connection string", sink.ConnectionString, sink.ConnectionStringEnv, dotEnv)
 			if err != nil {

@@ -128,6 +128,28 @@ func TestLoadAppliesCommandDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadAppliesHTTPDefaults(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"http","url":"https://example.com/feedback"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Sinks[0].Method != "POST" {
+		t.Fatalf("unexpected method %q", cfg.Sinks[0].Method)
+	}
+	if cfg.Sinks[0].TimeoutSeconds != 10 {
+		t.Fatalf("unexpected timeout %d", cfg.Sinks[0].TimeoutSeconds)
+	}
+}
+
 func TestLoadAppliesApplicationInsightsDefaults(t *testing.T) {
 	t.Parallel()
 
@@ -212,6 +234,57 @@ func TestLoadResolvesOTelEnvFields(t *testing.T) {
 	}
 	if cfg.Sinks[0].Headers["Authorization"] != "Bearer test-token" {
 		t.Fatalf("unexpected authorization header %q", cfg.Sinks[0].Headers["Authorization"])
+	}
+}
+
+func TestLoadResolvesHTTPEnvFields(t *testing.T) {
+	t.Setenv("TFYT_HTTP_URL", "https://example.com/feedback")
+	t.Setenv("TFYT_HTTP_HEADERS", `{"Authorization":"Bearer test-token"}`)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"http","url_env":"TFYT_HTTP_URL","headers_env":"TFYT_HTTP_HEADERS"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, _, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Sinks[0].URL != "https://example.com/feedback" {
+		t.Fatalf("unexpected url %q", cfg.Sinks[0].URL)
+	}
+	if cfg.Sinks[0].Headers["Authorization"] != "Bearer test-token" {
+		t.Fatalf("unexpected authorization header %q", cfg.Sinks[0].Headers["Authorization"])
+	}
+}
+
+func TestLoadRejectsBothHTTPURLSources(t *testing.T) {
+	t.Setenv("TFYT_HTTP_URL", "https://example.com/feedback")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"http","url":"https://direct.example/feedback","url_env":"TFYT_HTTP_URL"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected config load error")
+	}
+}
+
+func TestLoadRejectsBothHTTPHeaderSources(t *testing.T) {
+	t.Setenv("TFYT_HTTP_HEADERS", `{"Authorization":"Bearer test-token"}`)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, DefaultJSONFileName)
+	if err := os.WriteFile(path, []byte(`{"sinks":[{"type":"http","url":"https://example.com/feedback","headers":{"Authorization":"Bearer direct-token"},"headers_env":"TFYT_HTTP_HEADERS"}]}`), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, _, err := Load("", dir); err == nil {
+		t.Fatal("expected config load error")
 	}
 }
 
