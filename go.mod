@@ -1,4 +1,4 @@
-module github.com/agorischek/suggesting
+module github.com/agorischek/token-for-your-thoughts
 
 go 1.26.1
 

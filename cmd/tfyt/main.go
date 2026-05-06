@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/agorischek/suggesting/internal/app"
+	"github.com/agorischek/token-for-your-thoughts/internal/app"
 )
 
 var version = "dev"

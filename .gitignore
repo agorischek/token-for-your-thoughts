@@ -1,4 +1,5 @@
 .suggesting.json
+.tfyt.json
 .env
 dist/
 coverage.out

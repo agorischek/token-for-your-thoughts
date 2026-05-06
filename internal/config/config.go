@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DefaultFileName                     = ".suggesting.json"
+	DefaultFileName                     = ".tfyt.json"
 	defaultMCPToolName                  = "submit_feedback"
 	defaultMCPDescription               = "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
 	defaultFeedbackPath                 = "FEEDBACK.md"
@@ -23,9 +23,9 @@ const (
 	defaultGitDirectory                 = ".feedback"
 	defaultGitCommitPrefix              = "Add feedback entry"
 	defaultCommandMethod                = "submit_feedback"
-	defaultApplicationInsightsEventName = "suggesting feedback"
+	defaultApplicationInsightsEventName = "tfyt feedback"
 	defaultSQLTable                     = "feedback"
-	defaultOTelServiceName              = "suggesting"
+	defaultOTelServiceName              = "tfyt"
 )
 
 type Config struct {

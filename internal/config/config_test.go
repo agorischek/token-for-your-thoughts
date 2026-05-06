@@ -142,7 +142,7 @@ func TestLoadAppliesApplicationInsightsDefaults(t *testing.T) {
 		t.Fatalf("load config: %v", err)
 	}
 
-	if cfg.Sinks[0].EventName != "suggesting feedback" {
+	if cfg.Sinks[0].EventName != "tfyt feedback" {
 		t.Fatalf("unexpected event name %q", cfg.Sinks[0].EventName)
 	}
 }

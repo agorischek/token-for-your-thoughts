@@ -5,9 +5,9 @@ before:
     - go test ./...
 
 builds:
-  - id: suggesting
-    main: ./cmd/suggesting
-    binary: suggesting
+  - id: tfyt
+    main: ./cmd/tfyt
+    binary: tfyt
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -41,4 +41,4 @@ changelog:
 release:
   github:
     owner: agorischek
-    name: suggesting
+    name: token-for-your-thoughts

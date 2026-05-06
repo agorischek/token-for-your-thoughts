@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
 const defaultApplicationInsightsIngestionEndpoint = "https://dc.services.visualstudio.com/"
@@ -106,7 +106,7 @@ func (s *ApplicationInsightsSink) Submit(ctx context.Context, item feedback.Item
 		Time: item.CreatedAt.Format(time.RFC3339Nano),
 		IKey: s.instrumentationKey,
 		Tags: map[string]string{
-			"ai.cloud.role": "suggesting",
+			"ai.cloud.role": "tfyt",
 		},
 		Data: applicationInsightsDataWrapper{
 			BaseType: "EventData",

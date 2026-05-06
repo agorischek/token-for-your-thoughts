@@ -12,10 +12,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
-	"github.com/agorischek/suggesting/internal/mcpserver"
-	"github.com/agorischek/suggesting/internal/sinks"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/mcpserver"
+	"github.com/agorischek/token-for-your-thoughts/internal/sinks"
 )
 
 type runtimeConfig struct {
@@ -59,7 +59,7 @@ func runSubmit(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	var source string
 	var metadataRaw string
 
-	fs.StringVar(&configPath, "config", "", "path to a .suggesting.json file")
+	fs.StringVar(&configPath, "config", "", "path to a .tfyt.json file")
 	fs.StringVar(&provider, "provider", "", "feedback provider, for example Claude Code")
 	fs.StringVar(&feedbackText, "feedback", "", "feedback text")
 	fs.StringVar(&source, "source", "cli", "origin of the submission")
@@ -118,7 +118,7 @@ func runServeMCP(ctx context.Context, version string, args []string, stderr io.W
 	fs.SetOutput(stderr)
 
 	var configPath string
-	fs.StringVar(&configPath, "config", "", "path to a .suggesting.json file")
+	fs.StringVar(&configPath, "config", "", "path to a .tfyt.json file")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -196,12 +196,12 @@ func parseMetadata(raw string) (map[string]any, error) {
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprint(w, `suggesting collects agent feedback for a repository.
+	fmt.Fprint(w, `tfyt collects agent feedback for a repository.
 
 Usage:
-  suggesting submit --provider "Claude Code" --feedback "..." [flags]
-  suggesting serve-mcp [flags]
-  suggesting version
+  tfyt submit --provider "Claude Code" --feedback "..." [flags]
+  tfyt serve-mcp [flags]
+  tfyt version
 
 Commands:
   submit      Submit feedback directly from the CLI
@@ -213,10 +213,10 @@ Submit flags:
   --feedback    Feedback text (required)
   --source      Origin of the submission (default: cli)
   --metadata    Optional JSON object with extra metadata
-  --config      Path to a .suggesting.json file
+  --config      Path to a .tfyt.json file
 
 Config:
-  suggesting loads .suggesting.json JSON from the current directory or the
+  tfyt loads .tfyt.json JSON from the current directory or the
   nearest parent directory unless --config is provided.
 `)
 }

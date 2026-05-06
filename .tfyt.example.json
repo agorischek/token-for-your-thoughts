@@ -1,7 +1,7 @@
 {
   "mcp": {
     "tool_name": "submit_feedback",
-    "tool_description": "Submit feedback about working in this repository, including tool errors and inefficiencies, as well as instruction gaps and inconsistencies."
+    "tool_description": "Submit feedback about your work context, including tool errors and inefficiencies, as well as information gaps and inconsistencies."
   },
   "sinks": [
     {
@@ -26,7 +26,7 @@
     {
       "type": "application_insights",
       "connection_string_env": "APPINSIGHTS_CONNECTION_STRING",
-      "event_name": "suggesting feedback"
+      "event_name": "tfyt feedback"
     },
     {
       "type": "sql",
@@ -38,7 +38,7 @@
       "type": "otel",
       "endpoint_env": "BETTER_STACK_OTEL_ENDPOINT",
       "headers_env": "BETTER_STACK_OTEL_HEADERS",
-      "service_name": "suggesting"
+      "service_name": "tfyt"
     }
   ]
 }

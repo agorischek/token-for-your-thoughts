@@ -1,20 +1,20 @@
-# 🤖🗳️ Suggesting
+# 🤖🗳️ Token For Your Thoughts
 
 Are your coding agents dealing with unreliable tools, conflicting instructions, and outdated documentation? Would you know it if they were?
 
 __What if they could tell you?__
 
-`suggesting` is utility for agents to provide feedback on tools, skills, etc. — so you can improve them. It can be used both via CLI and via MCP. Feedback can be sent to a file, an Open Telemetry endpoint, or any other process.
+Token For Your Thoughts (`tfyt`) is a utility for agents to provide feedback on tools, skills, and repository experience so you can improve them. It can be used both via CLI and via MCP. Feedback can be sent to a file, an OpenTelemetry endpoint, or any other process.
 
 ## Setup
 
 First, install:
 
 ```bash
-go install github.com/agorischek/suggesting/cmd/suggesting@latest
+go install github.com/agorischek/token-for-your-thoughts/cmd/tfyt@latest
 ```
 
-For MCP usage, add `suggesting serve-mcp` to your MCP config.
+For MCP usage, add `tfyt serve-mcp` to your MCP config.
 
 Update your `AGENTS.md` or similar instructions file to encourage agents to provide feedback.
 
@@ -25,7 +25,7 @@ Feedback will be written to `FEEDBACK.md` by default. See below for configuratio
 Submit feedback directly:
 
 ```bash
-suggesting submit \
+tfyt submit \
   --provider "Claude Code" \
   --feedback "The command failed, but the surfaced output only showed a generic wrapper message, so I had to rerun it manually to see the real error." \
   --metadata '{"command":"git status","exit_code":1}'
@@ -34,22 +34,22 @@ suggesting submit \
 Serve the MCP server:
 
 ```bash
-suggesting serve-mcp
+tfyt serve-mcp
 ```
 
 Print the version:
 
 ```bash
-suggesting version
+tfyt version
 ```
 
 ## Configuration
 
-`suggesting` looks for `.suggesting.json` in the current directory and then walks up parent directories until it finds one. You can also pass `--config /path/to/.suggesting.json`.
+`tfyt` looks for `.tfyt.json` in the current directory and then walks up parent directories until it finds one. You can also pass `--config /path/to/.tfyt.json`.
 
-If a `.env` file exists in the same directory as the resolved `.suggesting.json`, `suggesting` loads it automatically before resolving any `*_env` config fields. Existing process environment variables win over values from `.env`.
+If a `.env` file exists in the same directory as the resolved `.tfyt.json`, `tfyt` loads it automatically before resolving any `*_env` config fields. Existing process environment variables win over values from `.env`.
 
-If `sinks` is omitted or empty, `suggesting` defaults to a single file sink that appends Markdown feedback to `FEEDBACK.md`.
+If `sinks` is omitted or empty, `tfyt` defaults to a single file sink that appends Markdown feedback to `FEEDBACK.md`.
 
 Example:
 
@@ -126,14 +126,14 @@ Example:
 - Sends each feedback item as a `customEvent` to the Application Insights ingestion endpoint.
 - Uses a standard Application Insights connection string with `InstrumentationKey` and optionally `IngestionEndpoint` or `EndpointSuffix`.
 - Supports either `connection_string` or `connection_string_env`, but not both.
-- Defaults the event name to `suggesting feedback`, but you can override it with `event_name`.
+- Defaults the event name to `tfyt feedback`, but you can override it with `event_name`.
 - Example:
 
 ```json
 {
   "type": "application_insights",
   "connection_string_env": "APPINSIGHTS_CONNECTION_STRING",
-  "event_name": "suggesting feedback"
+  "event_name": "tfyt feedback"
 }
 ```
 
@@ -168,7 +168,7 @@ Example:
   "type": "otel",
   "endpoint_env": "BETTER_STACK_OTEL_ENDPOINT",
   "headers_env": "BETTER_STACK_OTEL_HEADERS",
-  "service_name": "suggesting"
+  "service_name": "tfyt"
 }
 ```
 
@@ -197,7 +197,7 @@ go test ./...
 Build the CLI:
 
 ```bash
-go build ./cmd/suggesting
+go build ./cmd/tfyt
 ```
 
 Create a local snapshot release:

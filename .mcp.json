@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "suggesting": {
+    "tfyt": {
       "type": "local",
       "command": "go",
       "args": [
         "run",
-        "./cmd/suggesting",
+        "./cmd/tfyt",
         "serve-mcp"
       ],
       "env": {},

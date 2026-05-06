@@ -1,6 +1,6 @@
 # Agent Guidance
 
-This repository includes a feedback tool named `suggesting`.
+This repository includes a feedback tool named `tfyt`.
 
 If you are an agent working in this repo and you encounter friction, confusion, or breakage, use the `submit_feedback` MCP tool before you finish. Useful cases include:
 

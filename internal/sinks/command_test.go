@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
 func TestCommandSinkSubmit(t *testing.T) {

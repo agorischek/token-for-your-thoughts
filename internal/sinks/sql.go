@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
 type SQLSink struct {

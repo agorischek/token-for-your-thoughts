@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
-	"github.com/agorischek/suggesting/internal/sinks"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/sinks"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -25,7 +25,7 @@ type submitOutput struct {
 
 func Serve(ctx context.Context, version string, cfg config.Config, manager *sinks.Manager) error {
 	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "suggesting",
+		Name:    "tfyt",
 		Version: version,
 	}, nil)
 

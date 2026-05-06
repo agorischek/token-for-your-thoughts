@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
 type GitSink struct {
@@ -57,7 +57,7 @@ func (s *GitSink) Submit(ctx context.Context, item feedback.Item) error {
 		return fmt.Errorf("resolve remote %s: %w", s.remote, err)
 	}
 
-	tempDir, err := os.MkdirTemp("", "suggesting-git-*")
+	tempDir, err := os.MkdirTemp("", "tfyt-git-*")
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}

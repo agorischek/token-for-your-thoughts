@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agorischek/suggesting/internal/config"
-	"github.com/agorischek/suggesting/internal/feedback"
+	"github.com/agorischek/token-for-your-thoughts/internal/config"
+	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
@@ -45,7 +45,7 @@ func NewOTelSink(ctx context.Context, cfg config.SinkConfig) (*OTelSink, error) 
 
 	res, err := resource.New(ctx, resource.WithAttributes(
 		semconv.ServiceNameKey.String(cfg.ServiceName),
-		attribute.String("suggesting.sink", "otel"),
+		attribute.String("tfyt.sink", "otel"),
 	))
 	if err != nil {
 		return nil, fmt.Errorf("create otel resource: %w", err)
@@ -59,7 +59,7 @@ func NewOTelSink(ctx context.Context, cfg config.SinkConfig) (*OTelSink, error) 
 	return &OTelSink{
 		name:     "otel",
 		provider: provider,
-		logger:   provider.Logger("github.com/agorischek/suggesting"),
+		logger:   provider.Logger("github.com/agorischek/token-for-your-thoughts"),
 	}, nil
 }
 
@@ -76,7 +76,7 @@ func (s *OTelSink) Submit(ctx context.Context, item feedback.Item) error {
 	record.SetTimestamp(item.CreatedAt)
 	record.SetObservedTimestamp(time.Now().UTC())
 	record.SetBody(otellog.StringValue(item.Feedback))
-	record.SetEventName("suggesting.feedback")
+	record.SetEventName("tfyt.feedback")
 	record.AddAttributes(
 		otellog.String("feedback.id", item.ID),
 		otellog.String("feedback.provider", item.Provider),
