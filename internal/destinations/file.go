@@ -35,14 +35,14 @@ func (s *FileDestination) Submit(_ context.Context, item feedback.Item) error {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	file, err := os.OpenFile(s.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return fmt.Errorf("open feedback file: %w", err)
-	}
-	defer file.Close()
-
 	switch s.format {
 	case "json":
+		file, err := os.OpenFile(s.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			return fmt.Errorf("open feedback file: %w", err)
+		}
+		defer file.Close()
+
 		data, err := item.JSON(false)
 		if err != nil {
 			return fmt.Errorf("marshal feedback json: %w", err)
@@ -64,13 +64,7 @@ func (s *FileDestination) Submit(_ context.Context, item feedback.Item) error {
 			content = content + "\n\n" + entry + "\n"
 		}
 
-		if err := file.Truncate(0); err != nil {
-			return fmt.Errorf("truncate feedback file: %w", err)
-		}
-		if _, err := file.Seek(0, 0); err != nil {
-			return fmt.Errorf("seek feedback file: %w", err)
-		}
-		if _, err := file.WriteString(content); err != nil {
+		if err := os.WriteFile(s.path, []byte(content), 0o644); err != nil {
 			return fmt.Errorf("write markdown entry: %w", err)
 		}
 	}
