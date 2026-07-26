@@ -44,4 +44,4 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: goreleaser check
-        run: go run github.com/goreleaser/goreleaser/v2@v2.17.0 check
+        run: go run github.com/goreleaser/goreleaser/v2@v2.15.2 check
