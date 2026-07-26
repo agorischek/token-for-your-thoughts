@@ -6,12 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/agorischek/token-for-your-thoughts/internal/config"
 	"github.com/agorischek/token-for-your-thoughts/internal/feedback"
 )
 
 type FileDestination struct {
+	mu     sync.Mutex
 	path   string
 	format string
 }
@@ -31,6 +33,9 @@ func (s *FileDestination) Name() string {
 }
 
 func (s *FileDestination) Submit(_ context.Context, item feedback.Item) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}

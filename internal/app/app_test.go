@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -236,5 +237,53 @@ func TestRunUpdateDevVersionFindsRelease(t *testing.T) {
 	// The error should be from the network, not from argument parsing.
 	if strings.Contains(err.Error(), "unknown command") {
 		t.Fatalf("update command not recognized: %v", err)
+	}
+}
+
+func TestLookupGitHubTokenForUpdatePrefersEnv(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "env-token")
+
+	token := lookupGitHubTokenForUpdate(context.Background(), true, func(context.Context) (string, error) {
+		return "gh-token", nil
+	})
+
+	if token != "env-token" {
+		t.Fatalf("unexpected token %q", token)
+	}
+}
+
+func TestLookupGitHubTokenForUpdateUsesGHWhenAllowed(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+
+	token := lookupGitHubTokenForUpdate(context.Background(), true, func(context.Context) (string, error) {
+		return "gh-token\n", nil
+	})
+
+	if token != "gh-token" {
+		t.Fatalf("unexpected token %q", token)
+	}
+}
+
+func TestLookupGitHubTokenForUpdateSkipsGHWhenDisabled(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+
+	called := false
+	token := lookupGitHubTokenForUpdate(context.Background(), false, func(context.Context) (string, error) {
+		called = true
+		return "gh-token", nil
+	})
+
+	if token != "" {
+		t.Fatalf("unexpected token %q", token)
+	}
+	if called {
+		t.Fatal("expected gh auth token fallback to remain disabled")
+	}
+}
+
+func TestWrapUpdateAuthHintAddsSuggestion(t *testing.T) {
+	err := wrapUpdateAuthHint(errors.New("detect latest version: rate limit exceeded"), false)
+	if !strings.Contains(err.Error(), "tfyt update --auth") {
+		t.Fatalf("expected auth hint, got %q", err.Error())
 	}
 }

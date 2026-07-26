@@ -51,7 +51,7 @@ func Run(ctx context.Context, version string, args []string, stdout, stderr io.W
 	case "serve-mcp":
 		return runServeMCP(ctx, version, args[1:], stderr)
 	case "update":
-		return runUpdate(ctx, version, stdout)
+		return runUpdate(ctx, args[1:], version, stdout, stderr)
 	case "init":
 		return runInit(stdout)
 	default:
@@ -144,9 +144,22 @@ func runServeMCP(ctx context.Context, version string, args []string, stderr io.W
 	return mcpserver.Serve(ctx, version, runtime.Config, runtime.Manager)
 }
 
-func runUpdate(ctx context.Context, version string, stdout io.Writer) error {
+func runUpdate(ctx context.Context, args []string, version string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("update", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
+	var useAuth bool
+	fs.BoolVar(&useAuth, "auth", false, "allow tfyt to use `gh auth token` if GITHUB_TOKEN is not set")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return errors.New("update does not accept positional arguments")
+	}
+
 	source, err := selfupdate.NewGitHubSource(selfupdate.GitHubConfig{
-		APIToken: os.Getenv("GITHUB_TOKEN"),
+		APIToken: lookupGitHubTokenForUpdate(ctx, useAuth, ghAuthToken),
 	})
 	if err != nil {
 		return fmt.Errorf("create update source: %w", err)
@@ -158,7 +171,7 @@ func runUpdate(ctx context.Context, version string, stdout io.Writer) error {
 
 	latest, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug(repoSlug))
 	if err != nil {
-		return fmt.Errorf("detect latest version: %w", err)
+		return wrapUpdateAuthHint(fmt.Errorf("detect latest version: %w", err), useAuth)
 	}
 	if !found {
 		return fmt.Errorf("no release found for %s/%s", runtime.GOOS, runtime.GOARCH)
@@ -179,11 +192,45 @@ func runUpdate(ctx context.Context, version string, stdout io.Writer) error {
 	}
 
 	if err := updater.UpdateTo(ctx, latest, exe); err != nil {
-		return fmt.Errorf("apply update: %w", err)
+		return wrapUpdateAuthHint(fmt.Errorf("apply update: %w", err), useAuth)
 	}
 
 	fmt.Fprintf(stdout, "updated from %s to %s\n", version, latest.Version())
 	return nil
+}
+
+func lookupGitHubTokenForUpdate(ctx context.Context, allowGHAuth bool, fetch func(context.Context) (string, error)) string {
+	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
+		return token
+	}
+	if !allowGHAuth || fetch == nil {
+		return ""
+	}
+	token, err := fetch(ctx)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(token)
+}
+
+func wrapUpdateAuthHint(err error, usedAuth bool) error {
+	if err == nil || usedAuth {
+		return err
+	}
+	lower := strings.ToLower(err.Error())
+	if strings.Contains(lower, "rate limit") || strings.Contains(lower, "rate-limited") || strings.Contains(lower, "403 forbidden") {
+		return fmt.Errorf("%w\nhint: try `tfyt update --auth` to use `gh auth token` when available", err)
+	}
+	return err
+}
+
+func ghAuthToken(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
 }
 
 const initTemplate = `# tfyt configuration
@@ -341,7 +388,7 @@ Usage:
   tfyt init
   tfyt submit --provider "Claude Code" --feedback "..." [flags]
   tfyt serve-mcp [flags]
-  tfyt update
+  tfyt update [--auth]
   tfyt version
 
 Commands:
@@ -357,6 +404,9 @@ Submit flags:
   --source      Origin of the submission (default: cli)
   --metadata    Optional JSON object with extra metadata
   --config      Path to a .tfyt.toml or .tfyt.json file
+
+Update flags:
+  --auth        Allow tfyt to use gh auth token if GITHUB_TOKEN is not set
 
 Config:
   tfyt loads .tfyt.toml first, then .tfyt.json, from the current
