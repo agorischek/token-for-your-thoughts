@@ -12,6 +12,10 @@ permissions:
   actions: write
   contents: write
 
+concurrency:
+  group: prepare-release-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   tag:
     runs-on: ubuntu-latest
@@ -20,21 +24,57 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate version and ensure tag does not exist
+      - name: Inspect release state
+        id: release
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           if ! printf '%s' "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "version must match vMAJOR.MINOR.PATCH" >&2
             exit 1
           fi
+
+          tag_exists=false
           if git show-ref --verify --quiet "refs/tags/$VERSION" || \
              git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
-            echo "tag $VERSION already exists" >&2
-            exit 1
+            tag_exists=true
+            echo "::notice::Tag $VERSION already exists; checking whether its release needs recovery."
           fi
+          echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
+
+          dispatch_release=true
+          if [ "$tag_exists" = true ]; then
+            if gh release view "$VERSION" >/dev/null 2>&1; then
+              dispatch_release=false
+              echo "::notice::Release $VERSION is already published; nothing to do."
+            else
+              run_state="$(
+                gh run list \
+                  --workflow release.yml \
+                  --branch "$VERSION" \
+                  --limit 1 \
+                  --json status,conclusion \
+                  --jq 'if length == 0 then empty else (.[0] | [.status, .conclusion] | @tsv) end'
+              )"
+              run_status="${run_state%%	*}"
+              run_conclusion="${run_state#*	}"
+
+              if [ -n "$run_state" ] && [ "$run_status" != completed ]; then
+                dispatch_release=false
+                echo "::notice::Release $VERSION is already $run_status; nothing to do."
+              elif [ "$run_status" = completed ] && [ "$run_conclusion" = success ]; then
+                dispatch_release=false
+                echo "::notice::Release workflow for $VERSION already succeeded; nothing to do."
+              else
+                echo "::notice::Retrying the missing or failed release for existing tag $VERSION."
+              fi
+            fi
+          fi
+          echo "dispatch_release=$dispatch_release" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag
+        if: steps.release.outputs.tag_exists != 'true'
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -44,6 +84,7 @@ jobs:
           git push origin "refs/tags/$VERSION"
 
       - name: Dispatch release workflow
+        if: steps.release.outputs.dispatch_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
