@@ -75,14 +75,14 @@ func (s *OTelDestination) Submit(ctx context.Context, item feedback.Item) error 
 	record := otellog.Record{}
 	record.SetTimestamp(item.CreatedAt)
 	record.SetObservedTimestamp(time.Now().UTC())
-	record.SetBody(otellog.StringValue(item.Feedback))
+	record.SetBody(attribute.StringValue(item.Feedback))
 	record.SetEventName("tfyt.feedback")
 	record.AddAttributes(
-		otellog.String("feedback.id", item.ID),
-		otellog.String("feedback.provider", item.Provider),
-		otellog.String("feedback.source", item.Source),
-		otellog.String("feedback.created_at", item.CreatedAt.Format(time.RFC3339)),
-		otellog.String("feedback.metadata_json", item.MetadataJSON()),
+		attribute.String("feedback.id", item.ID),
+		attribute.String("feedback.provider", item.Provider),
+		attribute.String("feedback.source", item.Source),
+		attribute.String("feedback.created_at", item.CreatedAt.Format(time.RFC3339)),
+		attribute.String("feedback.metadata_json", item.MetadataJSON()),
 	)
 
 	s.logger.Emit(ctx, record)
