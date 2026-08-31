@@ -71,4 +71,7 @@ func TestOTelDestinationSubmitRecord(t *testing.T) {
 	if _, ok := attrs["feedback.created_at"]; !ok {
 		t.Fatal("missing feedback.created_at attribute")
 	}
+	if len(attrs) != len(expected)+1 {
+		t.Fatalf("unexpected attribute count %d", len(attrs))
+	}
 }
