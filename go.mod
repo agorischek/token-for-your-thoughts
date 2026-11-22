@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/creativeprojects/go-selfupdate v1.7.0
+	github.com/creativeprojects/go-selfupdate v1.7.1
 	github.com/google/go-github/v74 v74.0.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
@@ -29,7 +29,7 @@ require (
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/google/go-github/v86 v86.0.0 // indirect
+	github.com/google/go-github/v93 v93.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
